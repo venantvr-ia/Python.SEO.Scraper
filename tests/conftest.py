@@ -1,14 +1,132 @@
 # -*- coding: utf-8 -*-
 """
-Configuration pytest pour les tests.
+Pytest configuration and fixtures.
 """
+import asyncio
+import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
+import pytest_asyncio
 from fastapi.testclient import TestClient
 
 from seo_scraper.api import app
+from seo_scraper.config import config
+from seo_scraper.database import Database
+from seo_scraper.scraper import ScrapeResult, ScraperService
 
 
 @pytest.fixture
 def client():
-    """Client de test FastAPI (sans démarrer le crawler)."""
+    """FastAPI test client (without starting the crawler)."""
     return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def event_loop():
+    """Create event loop for async tests."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest_asyncio.fixture
+async def test_db():
+    """Create a temporary test database."""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
+        temp_path = Path(f.name)
+
+    # Override config
+    original_path = config.DATABASE_PATH
+    config.DATABASE_PATH = temp_path
+
+    # Create fresh database instance
+    db = Database()
+    await db.initialize()
+
+    yield db
+
+    # Cleanup
+    await db.close()
+    config.DATABASE_PATH = original_path
+    if temp_path.exists():
+        temp_path.unlink()
+
+
+@pytest.fixture
+def mock_scraper_service():
+    """Mock scraper service for testing."""
+    mock = MagicMock(spec=ScraperService)
+    mock.is_ready = True
+
+    async def mock_scrape(url, timeout=30000):
+        return ScrapeResult(
+            success=True,
+            markdown="# Test Content\n\nThis is test markdown.",
+            content_type="html",
+            content_hash="abc123",
+            http_status_code=200,
+            duration_ms=500,
+            links_count=5,
+            images_count=2,
+            js_executed=True,
+        )
+
+    mock.scrape = AsyncMock(side_effect=mock_scrape)
+    return mock
+
+
+@pytest.fixture
+def mock_failed_scrape():
+    """Mock scraper that returns failure."""
+    mock = MagicMock(spec=ScraperService)
+    mock.is_ready = True
+
+    async def mock_scrape(url, timeout=30000):
+        return ScrapeResult(
+            success=False,
+            error="Connection timeout",
+            content_type="html",
+            duration_ms=30000,
+        )
+
+    mock.scrape = AsyncMock(side_effect=mock_scrape)
+    return mock
+
+
+@pytest.fixture
+def sample_log_data():
+    """Sample log data for database tests."""
+    return {
+        "url": "https://example.com/test",
+        "duration_ms": 1234,
+        "status": "success",
+        "http_status_code": 200,
+        "content_type": "html",
+        "content_hash": "abc123def456",
+        "content_length": 5000,
+        "markdown_content": "# Test\n\nSample content",
+        "js_executed": 1,
+        "links_count": 10,
+        "images_count": 5,
+    }
+
+
+@pytest.fixture
+def sample_pdf_log_data():
+    """Sample PDF log data for database tests."""
+    return {
+        "url": "https://example.com/document.pdf",
+        "duration_ms": 2500,
+        "status": "success",
+        "http_status_code": 200,
+        "content_type": "pdf",
+        "content_hash": "pdf123hash",
+        "content_length": 15000,
+        "markdown_content": "# PDF Content\n\nExtracted from PDF",
+        "pdf_title": "Test Document",
+        "pdf_author": "Test Author",
+        "pdf_pages": 10,
+        "pdf_creation_date": "2024-01-15",
+    }

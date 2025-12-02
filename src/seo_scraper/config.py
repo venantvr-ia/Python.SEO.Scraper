@@ -50,6 +50,24 @@ class Config:
     # PDF
     MAX_PDF_SIZE_MB: int = int(os.getenv("MAX_PDF_SIZE_MB", "50"))
 
+    # Retry
+    RETRY_MAX_ATTEMPTS: int = int(os.getenv("RETRY_MAX_ATTEMPTS", "3"))
+    RETRY_MIN_WAIT: int = int(os.getenv("RETRY_MIN_WAIT", "1"))
+    RETRY_MAX_WAIT: int = int(os.getenv("RETRY_MAX_WAIT", "10"))
+
+    # Concurrency
+    MAX_CONCURRENT_BROWSERS: int = int(os.getenv("MAX_CONCURRENT_BROWSERS", "5"))
+
+    # CORS
+    CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "*").split(",")
+    CORS_ALLOW_CREDENTIALS: bool = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
+
+    # Request tracking
+    REQUEST_ID_HEADER: str = os.getenv("REQUEST_ID_HEADER", "X-Request-ID")
+
+    # Compression
+    GZIP_MIN_SIZE: int = int(os.getenv("GZIP_MIN_SIZE", "1000"))
+
     # Paths
     BASE_DIR: Path = Path(__file__).parent
     TEMPLATES_DIR: Path = BASE_DIR / "templates"

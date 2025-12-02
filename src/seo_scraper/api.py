@@ -7,12 +7,16 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import HttpUrl
 
 from . import __version__
 from .config import config
 from .database import db
+from .logging_config import setup_logging
+from .middleware import RequestIDMiddleware
 from .models import (
     HealthResponse,
     PDFMetadataResponse,
@@ -21,11 +25,8 @@ from .models import (
 )
 from .scraper import scraper_service
 
-# Logging configuration
-logging.basicConfig(
-    level=getattr(logging, config.LOG_LEVEL),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Setup structured logging
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -33,16 +34,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Application lifecycle management."""
+    logger.info("Starting SEO Scraper service", extra={"version": __version__})
+
     # Startup
     await db.initialize()
     await scraper_service.start()
-
-    # Cleanup old logs at startup
     await db.cleanup_old_logs()
 
     yield
 
     # Shutdown
+    logger.info("Shutting down SEO Scraper service")
     await scraper_service.stop()
     await db.close()
 
@@ -53,6 +55,17 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+
+# Middleware stack (order matters: last added = first executed)
+app.add_middleware(GZipMiddleware, minimum_size=config.GZIP_MIN_SIZE)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config.CORS_ORIGINS,
+    allow_credentials=config.CORS_ALLOW_CREDENTIALS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.add_middleware(RequestIDMiddleware)
 
 # Mount static files if directory exists
 if config.STATIC_DIR.exists():
@@ -83,6 +96,7 @@ async def scrape_url(request: ScrapeRequest) -> ScrapeResponse:
         raise HTTPException(status_code=503, detail="Crawler not initialized")
 
     url_str = str(request.url)
+    logger.info("Scrape request received", extra={"url": url_str[:80]})
 
     # Scrape with the enriched service
     result = await scraper_service.scrape(url=url_str, timeout=request.timeout)
@@ -145,7 +159,16 @@ async def scrape_url(request: ScrapeRequest) -> ScrapeResponse:
 
         await db.insert_log(log_data)
     except Exception as e:
-        logger.error(f"Error logging to database: {e}")
+        logger.error("Error logging to database", extra={"error": str(e)})
+
+    logger.info(
+        "Scrape completed",
+        extra={
+            "url": url_str[:60],
+            "success": result.success,
+            "duration_ms": result.duration_ms,
+        },
+    )
 
     return response
 
@@ -161,6 +184,8 @@ async def scrape_batch(
     """
     if not scraper_service.is_ready:
         raise HTTPException(status_code=503, detail="Crawler not initialized")
+
+    logger.info("Batch scrape request", extra={"url_count": len(urls)})
 
     tasks = [
         scrape_url(

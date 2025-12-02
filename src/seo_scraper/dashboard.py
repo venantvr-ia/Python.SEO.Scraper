@@ -127,8 +127,86 @@ async def dashboard_rescrape(log_id: str):
 
 
 # =============================================================================
+# Cursor Pagination API
+# =============================================================================
+@router.get("/api/logs/cursor")
+async def dashboard_api_logs_cursor(
+    cursor: str | None = None,
+    limit: int = Query(50, ge=10, le=100),
+    status: Literal["success", "error", "timeout"] | None = None,
+    content_type: Literal["html", "pdf", "spa"] | None = None,
+):
+    """
+    JSON API for logs with cursor-based pagination.
+
+    More efficient for large datasets than offset pagination.
+    Returns next_cursor to fetch the next page.
+    """
+    logs, next_cursor = await db.get_logs_cursor(
+        cursor=cursor,
+        limit=limit,
+        status=status,
+        content_type=content_type,
+    )
+
+    return {
+        "logs": [ScrapeLogSummary(**log) for log in logs],
+        "next_cursor": next_cursor,
+        "has_more": next_cursor is not None,
+    }
+
+
+# =============================================================================
 # Export
 # =============================================================================
+@router.get("/export/json")
+async def dashboard_export_json(
+    status: Literal["success", "error", "timeout"] | None = None,
+    content_type: Literal["html", "pdf", "spa"] | None = None,
+    url_search: str | None = None,
+    include_content: bool = Query(False, description="Include markdown content in export"),
+):
+    """Export logs to JSON."""
+    import json as json_lib
+
+    # Get all logs with filters
+    logs, total = await db.get_logs(
+        limit=10000,
+        offset=0,
+        status=status,
+        content_type=content_type,
+        url_search=url_search,
+    )
+
+    # Remove markdown content if not requested (saves bandwidth)
+    if not include_content:
+        for log in logs:
+            log.pop("markdown_content", None)
+
+    # Build export data
+    export_data = {
+        "exported_at": datetime.now().isoformat(),
+        "total_records": total,
+        "filters": {
+            "status": status,
+            "content_type": content_type,
+            "url_search": url_search,
+        },
+        "logs": logs,
+    }
+
+    # Generate filename with date
+    filename = f"scrape_logs_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+    output = json_lib.dumps(export_data, indent=2, default=str)
+
+    return StreamingResponse(
+        iter([output]),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.get("/export/csv")
 async def dashboard_export_csv(
     status: Literal["success", "error", "timeout"] | None = None,

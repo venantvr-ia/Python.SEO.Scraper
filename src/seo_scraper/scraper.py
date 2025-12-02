@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from .config import config
 from .pdf_scraper import PDFScraper, compute_content_hash
@@ -35,6 +41,7 @@ class ScrapeResult:
     response_headers: dict | None = None
     ssl_info: dict | None = None
     redirects: list[str] = field(default_factory=list)
+    retry_count: int = 0
 
     # PDF specific
     pdf_title: str | None = None
@@ -43,8 +50,14 @@ class ScrapeResult:
     pdf_creation_date: str | None = None
 
 
+class RetryableError(Exception):
+    """Exception that triggers retry."""
+
+    pass
+
+
 class ScraperService:
-    """Scraping service with crawler lifecycle management."""
+    """Scraping service with crawler lifecycle management and concurrency control."""
 
     def __init__(self):
         self.crawler: AsyncWebCrawler | None = None
@@ -53,10 +66,15 @@ class ScraperService:
             headless=config.CRAWLER_HEADLESS,
             verbose=config.CRAWLER_VERBOSE,
         )
+        # Semaphore for browser concurrency control
+        self._semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_BROWSERS)
 
     async def start(self):
         """Initialize and start the crawler."""
-        logger.info("Initializing Crawl4AI crawler...")
+        logger.info(
+            "Initializing Crawl4AI crawler",
+            extra={"max_concurrent": config.MAX_CONCURRENT_BROWSERS},
+        )
         self.crawler = AsyncWebCrawler(config=self._browser_config)
         await self.crawler.start()
         await self._pdf_scraper.start()
@@ -84,6 +102,8 @@ class ScraperService:
         """
         Scrape a URL and return content as Markdown with metadata.
 
+        Uses semaphore for concurrency control and retry with exponential backoff.
+
         Args:
             url: URL to scrape
             timeout: Timeout in milliseconds
@@ -93,11 +113,13 @@ class ScraperService:
         """
         start_time = time.time()
 
-        # Detect if it's a PDF by extension
-        if self._pdf_scraper.is_pdf_url(url):
-            result = await self._scrape_pdf(url, timeout)
-        else:
-            result = await self._scrape_html(url, timeout)
+        # Acquire semaphore for concurrency control
+        async with self._semaphore:
+            # Detect if it's a PDF by extension
+            if self._pdf_scraper.is_pdf_url(url):
+                result = await self._scrape_pdf_with_retry(url, timeout)
+            else:
+                result = await self._scrape_html_with_retry(url, timeout)
 
         # Calculate duration
         result.duration_ms = int((time.time() - start_time) * 1000)
@@ -107,6 +129,86 @@ class ScraperService:
             result.content_hash = compute_content_hash(result.markdown)
 
         return result
+
+    async def _scrape_pdf_with_retry(self, url: str, timeout: int) -> ScrapeResult:
+        """Scrape PDF with retry logic."""
+        retry_count = 0
+
+        @retry(
+            retry=retry_if_exception_type(RetryableError),
+            stop=stop_after_attempt(config.RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(
+                min=config.RETRY_MIN_WAIT, max=config.RETRY_MAX_WAIT
+            ),
+            reraise=True,
+        )
+        async def _inner():
+            nonlocal retry_count
+            result = await self._scrape_pdf(url, timeout)
+            if not result.success and result.error:
+                # Retry on network errors, not on 404 etc.
+                if any(
+                    err in result.error.lower()
+                    for err in ["timeout", "connection", "network"]
+                ):
+                    retry_count += 1
+                    logger.warning(
+                        f"Retrying PDF scrape (attempt {retry_count})",
+                        extra={"url": url[:60]},
+                    )
+                    raise RetryableError(result.error)
+            result.retry_count = retry_count
+            return result
+
+        try:
+            return await _inner()
+        except RetryableError as e:
+            return ScrapeResult(
+                success=False,
+                error=f"Failed after {config.RETRY_MAX_ATTEMPTS} attempts: {e}",
+                content_type="pdf",
+                retry_count=retry_count,
+            )
+
+    async def _scrape_html_with_retry(self, url: str, timeout: int) -> ScrapeResult:
+        """Scrape HTML with retry logic."""
+        retry_count = 0
+
+        @retry(
+            retry=retry_if_exception_type(RetryableError),
+            stop=stop_after_attempt(config.RETRY_MAX_ATTEMPTS),
+            wait=wait_exponential(
+                min=config.RETRY_MIN_WAIT, max=config.RETRY_MAX_WAIT
+            ),
+            reraise=True,
+        )
+        async def _inner():
+            nonlocal retry_count
+            result = await self._scrape_html(url, timeout)
+            if not result.success and result.error:
+                # Retry on transient errors
+                if any(
+                    err in result.error.lower()
+                    for err in ["timeout", "connection", "network", "temporary"]
+                ):
+                    retry_count += 1
+                    logger.warning(
+                        f"Retrying HTML scrape (attempt {retry_count})",
+                        extra={"url": url[:60]},
+                    )
+                    raise RetryableError(result.error)
+            result.retry_count = retry_count
+            return result
+
+        try:
+            return await _inner()
+        except RetryableError as e:
+            return ScrapeResult(
+                success=False,
+                error=f"Failed after {config.RETRY_MAX_ATTEMPTS} attempts: {e}",
+                content_type="html",
+                retry_count=retry_count,
+            )
 
     async def _scrape_pdf(self, url: str, timeout: int) -> ScrapeResult:
         """Scrape a PDF file."""
@@ -135,7 +237,7 @@ class ScraperService:
         if not self.crawler:
             return ScrapeResult(success=False, error="Crawler not initialized")
 
-        logger.info(f"Scraping: {url[:80]}...")
+        logger.info("Scraping URL", extra={"url": url[:80]})
 
         try:
             # Crawl configuration
@@ -154,7 +256,9 @@ class ScraperService:
 
             if not crawl_result.success:
                 error_msg = crawl_result.error_message or "Scraping failed"
-                logger.warning(f"Scraping failed: {url[:60]} - {error_msg}")
+                logger.warning(
+                    "Scraping failed", extra={"url": url[:60], "error": error_msg}
+                )
                 return ScrapeResult(
                     success=False,
                     error=error_msg,
@@ -210,12 +314,15 @@ class ScraperService:
                     "expires": getattr(ssl_cert, "not_after", None),
                 }
 
-            logger.info(f"Success: {url[:60]} ({len(markdown_content)} chars)")
+            logger.info(
+                "Scrape success",
+                extra={"url": url[:60], "content_length": len(markdown_content)},
+            )
             return result
 
         except asyncio.TimeoutError:
             error_msg = f"Timeout after {timeout}ms"
-            logger.error(f"Timeout: {url[:60]}")
+            logger.error("Scrape timeout", extra={"url": url[:60], "timeout": timeout})
             return ScrapeResult(
                 success=False,
                 error=error_msg,
@@ -224,7 +331,9 @@ class ScraperService:
 
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"Scraping error {url[:60]}: {e}")
+            logger.error(
+                "Scraping error", extra={"url": url[:60], "error": error_msg}
+            )
             return ScrapeResult(
                 success=False,
                 error=error_msg,

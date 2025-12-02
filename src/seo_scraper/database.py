@@ -2,6 +2,7 @@
 """
 SQLite database module for scrape audit trail.
 """
+import base64
 import json
 import logging
 from datetime import datetime, timedelta
@@ -310,6 +311,93 @@ class Database:
             total = (await cursor.fetchone())[0]
 
         return logs, total
+
+    async def get_logs_cursor(
+        self,
+        cursor: str | None = None,
+        limit: int = 50,
+        status: str | None = None,
+        content_type: str | None = None,
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """
+        Get logs with cursor-based pagination (more efficient for large datasets).
+
+        Uses rowid for reliable ordering since SQLite timestamps have only
+        second precision and UUID ordering is unpredictable.
+
+        Args:
+            cursor: Base64-encoded cursor (rowid) from previous call
+            limit: Maximum number of results
+            status: Filter by status
+            content_type: Filter by content type
+
+        Returns:
+            Tuple (logs list, next_cursor or None if no more results)
+        """
+        if not self._db:
+            raise RuntimeError("Database not initialized")
+
+        # Build filter conditions
+        conditions = []
+        params: list[Any] = []
+
+        if status:
+            conditions.append("status = ?")
+            params.append(status)
+
+        if content_type:
+            conditions.append("content_type = ?")
+            params.append(content_type)
+
+        # Decode cursor if provided (cursor is base64-encoded rowid)
+        if cursor:
+            try:
+                decoded = base64.b64decode(cursor).decode("utf-8")
+                cursor_rowid = int(decoded)
+                conditions.append("rowid < ?")
+                params.append(cursor_rowid)
+            except (ValueError, UnicodeDecodeError):
+                logger.warning("Invalid cursor format, ignoring")
+
+        where_clause = ""
+        if conditions:
+            where_clause = "WHERE " + " AND ".join(conditions)
+
+        # Query with limit + 1 to detect if there are more results
+        # Use rowid for consistent ordering
+        query = f"""
+            SELECT rowid, * FROM scrape_logs
+            {where_clause}
+            ORDER BY rowid DESC
+            LIMIT ?
+        """
+        params.append(limit + 1)
+
+        async with self._db.execute(query, params) as db_cursor:
+            rows = await db_cursor.fetchall()
+            columns = [desc[0] for desc in db_cursor.description]
+
+        # Check if there are more results
+        has_more = len(rows) > limit
+        if has_more:
+            rows = rows[:limit]  # Remove extra row
+
+        logs = [
+            self._row_to_dict(dict(zip(columns, row, strict=True))) for row in rows
+        ]
+
+        # Generate next cursor from last result's rowid
+        next_cursor = None
+        if has_more and logs:
+            last_rowid = logs[-1].get("rowid")
+            if last_rowid is not None:
+                next_cursor = base64.b64encode(str(last_rowid).encode("utf-8")).decode("utf-8")
+
+        # Remove rowid from results (internal use only)
+        for log in logs:
+            log.pop("rowid", None)
+
+        return logs, next_cursor
 
     async def get_stats(self) -> dict[str, Any]:
         """
