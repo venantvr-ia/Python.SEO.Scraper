@@ -1,17 +1,18 @@
-.PHONY: help venv install install-dev clean run run-dev test test-cov lint format check-format clean-all scrape scrape-save check status docker-build docker-run docker-stop docker-logs
+.PHONY: help venv install install-dev clean run run-dev test test-cov lint format check-format clean-all scrape scrape-save check status docker-build docker-run docker-stop docker-logs dashboard db-reset db-backup
 
 PYTHON := python3.11
 VENV := .venv
 BIN := $(VENV)/bin
 PORT := 8001
 HOST := 0.0.0.0
+DATA_DIR := data
 
 # =============================================================================
 # HELP
 # =============================================================================
 
 help:
-	@echo "SEO Scraper Service - Commandes disponibles:"
+	@echo "SEO Scraper Service v2.0 - Commandes disponibles:"
 	@echo ""
 	@echo "  make install       - Créer le venv et installer les dépendances"
 	@echo "  make install-dev   - Installation avec outils de développement"
@@ -28,6 +29,11 @@ help:
 	@echo "  make scrape-save   - Scrape et sauvegarde dans tests/samples/"
 	@echo "  make check         - Vérifier l'état du service"
 	@echo "  make status        - Afficher le statut du service"
+	@echo ""
+	@echo "Dashboard & Base de données:"
+	@echo "  make dashboard     - Ouvrir le dashboard dans le navigateur"
+	@echo "  make db-reset      - Réinitialiser la base de données"
+	@echo "  make db-backup     - Sauvegarder la base de données"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker-build  - Construire l'image Docker"
@@ -173,3 +179,21 @@ docker-stop:
 
 docker-logs:
 	docker compose logs -f
+
+# =============================================================================
+# DASHBOARD & BASE DE DONNÉES
+# =============================================================================
+
+dashboard:
+	@echo "Ouverture du dashboard..."
+	@xdg-open http://localhost:$(PORT)/dashboard/ 2>/dev/null || open http://localhost:$(PORT)/dashboard/ 2>/dev/null || echo "Ouvrez http://localhost:$(PORT)/dashboard/ dans votre navigateur"
+
+db-reset:
+	@echo "Réinitialisation de la base de données..."
+	@rm -f $(DATA_DIR)/scraper.db
+	@echo "✓ Base de données supprimée (sera recréée au prochain démarrage)"
+
+db-backup:
+	@echo "Sauvegarde de la base de données..."
+	@mkdir -p backups
+	@cp $(DATA_DIR)/scraper.db backups/scraper_$$(date +%Y%m%d_%H%M%S).db 2>/dev/null && echo "✓ Backup créé dans backups/" || echo "✗ Pas de base de données à sauvegarder"

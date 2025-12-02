@@ -1,18 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-SEO Scraper Service - Micro-service FastAPI de scraping haute performance.
+SEO Scraper Service - High-performance FastAPI scraping microservice.
 """
 import warnings
 
-# Supprimer les warnings Pydantic de crawl4ai (utilise l'ancienne syntaxe class Config)
-# Ces warnings viennent d'une dépendance externe qu'on ne contrôle pas
+# Suppress Pydantic warnings from crawl4ai (uses old class Config syntax)
+# These warnings come from an external dependency we don't control
 warnings.filterwarnings(
     "ignore",
     message="Support for class-based `config` is deprecated",
     category=DeprecationWarning,
 )
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 from .api import app  # noqa: E402
 from .models import ScrapeRequest, ScrapeResponse  # noqa: E402

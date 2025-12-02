@@ -5,8 +5,8 @@ FROM python:3.11-slim
 
 # Métadonnées
 LABEL maintainer="RVV"
-LABEL description="Micro-service FastAPI de scraping avec Crawl4AI"
-LABEL version="1.0.0"
+LABEL description="Micro-service FastAPI de scraping avec Crawl4AI, support PDF et dashboard d'audit"
+LABEL version="2.0.0"
 
 # Variables d'environnement
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -14,14 +14,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     HOST=0.0.0.0 \
-    PORT=8001
+    PORT=8001 \
+    DATABASE_PATH=/app/data/scraper.db \
+    DASHBOARD_ENABLED=true
 
 # Répertoire de travail
 WORKDIR /app
 
 # Installer les dépendances système pour Playwright/Chromium
-# Dépendances Playwright/Chromium
-# Utilitaires
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     libnspr4 \
@@ -45,21 +45,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copier les fichiers de configuration
-COPY pyproject.toml ./
+# Créer le répertoire data pour SQLite
+RUN mkdir -p /app/data
 
-# Installer les dépendances Python
+# Copier les fichiers necessaires pour l'installation
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+
+# Installer les dependances Python
 RUN pip install --upgrade pip setuptools wheel \
     && pip install .
 
 # Installer Playwright et les navigateurs
 RUN crawl4ai-setup
 
-# Copier le code source
-COPY src/ ./src/
-
-# Réinstaller en mode editable pour inclure le code source
-RUN pip install -e .
+# Volume pour la persistance de la base de données
+VOLUME ["/app/data"]
 
 # Exposer le port
 EXPOSE 8001

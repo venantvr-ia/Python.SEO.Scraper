@@ -1,0 +1,134 @@
+/* Custom styles for SEO Scraper Dashboard */
+
+/* Loading indicator for HTMX */
+.htmx-request .htmx-indicator {
+    display: inline;
+}
+
+.htmx-indicator {
+    display: none;
+}
+
+/* Smooth transitions */
+.htmx-swapping {
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+
+/* Table hover effects */
+tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Code/Pre blocks */
+pre {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Truncate utility */
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Badge animations */
+.badge {
+    transition: transform 0.15s ease;
+}
+
+.badge:hover {
+    transform: scale(1.05);
+}
+
+/* Button loading state */
+button.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+button.loading::after {
+    content: '...';
+    animation: dots 1s infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: '.'; }
+    40% { content: '..'; }
+    60%, 100% { content: '...'; }
+}
+
+/* Focus states */
+input:focus, select:focus, button:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #4f46e5;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+        font-size: 14px;
+    }
+
+    th, td {
+        padding: 8px 12px;
+    }
+}
+
+/* Animation for new items */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Status colors */
+.status-success { color: #22c55e; }
+.status-error { color: #ef4444; }
+.status-timeout { color: #f59e0b; }
+
+/* Card hover effect */
+.card-hover {
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card-hover:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-2px);
+}
