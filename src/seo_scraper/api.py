@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import HttpUrl
 
 from . import __version__
-from .config import config
+from .config import settings
 from .database import db
 from .logging_config import setup_logging
 from .middleware import RequestIDMiddleware
@@ -89,19 +89,19 @@ app = FastAPI(
 )
 
 # Middleware stack (order matters: last added = first executed)
-app.add_middleware(GZipMiddleware, minimum_size=config.GZIP_MIN_SIZE)
+app.add_middleware(GZipMiddleware, minimum_size=settings.GZIP_MIN_SIZE)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.CORS_ORIGINS,
-    allow_credentials=config.CORS_ALLOW_CREDENTIALS,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 app.add_middleware(RequestIDMiddleware)
 
 # Mount static files if directory exists
-if config.STATIC_DIR.exists():
-    app.mount("/static", StaticFiles(directory=config.STATIC_DIR), name="static")
+if settings.STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=settings.STATIC_DIR), name="static")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -239,7 +239,7 @@ async def scrape_batch(
 
 
 # Conditional dashboard import
-if config.DASHBOARD_ENABLED:
+if settings.DASHBOARD_ENABLED:
     try:
         from .dashboard import router as dashboard_router
 

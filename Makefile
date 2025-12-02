@@ -47,10 +47,14 @@ help:
 # =============================================================================
 
 venv:
-	@echo "Création de l'environnement virtuel..."
-	$(PYTHON) -m venv $(VENV)
-	@echo "✓ Environnement virtuel créé"
-	@echo "  Activez-le avec: source $(VENV)/bin/activate"
+	@if [ ! -d "$(VENV)" ]; then \
+		echo "Création de l'environnement virtuel..."; \
+		$(PYTHON) -m venv $(VENV); \
+		echo "✓ Environnement virtuel créé"; \
+		echo "  Activez-le avec: source $(VENV)/bin/activate"; \
+	else \
+		echo "✓ Environnement virtuel existant"; \
+	fi
 
 install: venv
 	@echo "Installation des dépendances..."

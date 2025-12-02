@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from .config import config
+from .config import settings
 
 # Context variable for request ID (accessible across async calls)
 request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
@@ -25,14 +25,14 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         # Get or generate request ID
-        request_id = request.headers.get(config.REQUEST_ID_HEADER) or str(uuid.uuid4())
+        request_id = request.headers.get(settings.REQUEST_ID_HEADER) or str(uuid.uuid4())
 
         # Store in context
         token = request_id_ctx.set(request_id)
 
         try:
             response = await call_next(request)
-            response.headers[config.REQUEST_ID_HEADER] = request_id
+            response.headers[settings.REQUEST_ID_HEADER] = request_id
             return response
         finally:
             request_id_ctx.reset(token)

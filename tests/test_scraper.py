@@ -224,5 +224,5 @@ class TestConcurrencyControl:
         service = ScraperService()
 
         # Verify semaphore is created with correct value
-        from seo_scraper.config import config
-        assert service._semaphore._value == config.MAX_CONCURRENT_BROWSERS
+        from seo_scraper.config import settings
+        assert service._semaphore._value == settings.MAX_CONCURRENT_BROWSERS

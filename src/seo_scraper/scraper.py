@@ -17,7 +17,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from .config import config
+from .config import settings
 from .pdf_scraper import PDFScraper, compute_content_hash
 
 logger = logging.getLogger(__name__)
@@ -63,17 +63,17 @@ class ScraperService:
         self.crawler: AsyncWebCrawler | None = None
         self._pdf_scraper = PDFScraper()
         self._browser_config = BrowserConfig(
-            headless=config.CRAWLER_HEADLESS,
-            verbose=config.CRAWLER_VERBOSE,
+            headless=settings.CRAWLER_HEADLESS,
+            verbose=settings.CRAWLER_VERBOSE,
         )
         # Semaphore for browser concurrency control
-        self._semaphore = asyncio.Semaphore(config.MAX_CONCURRENT_BROWSERS)
+        self._semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_BROWSERS)
 
     async def start(self):
         """Initialize and start the crawler."""
         logger.info(
             "Initializing Crawl4AI crawler",
-            extra={"max_concurrent": config.MAX_CONCURRENT_BROWSERS},
+            extra={"max_concurrent": settings.MAX_CONCURRENT_BROWSERS},
         )
         self.crawler = AsyncWebCrawler(config=self._browser_config)
         await self.crawler.start()
@@ -97,7 +97,7 @@ class ScraperService:
     async def scrape(
             self,
             url: str,
-            timeout: int = config.DEFAULT_TIMEOUT,
+            timeout: int = settings.DEFAULT_TIMEOUT,
     ) -> ScrapeResult:
         """
         Scrape a URL and return content as Markdown with metadata.
@@ -136,9 +136,9 @@ class ScraperService:
 
         @retry(
             retry=retry_if_exception_type(RetryableError),
-            stop=stop_after_attempt(config.RETRY_MAX_ATTEMPTS),
+            stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
             wait=wait_exponential(
-                min=config.RETRY_MIN_WAIT, max=config.RETRY_MAX_WAIT
+                min=settings.RETRY_MIN_WAIT, max=settings.RETRY_MAX_WAIT
             ),
             reraise=True,
         )
@@ -165,7 +165,7 @@ class ScraperService:
         except RetryableError as e:
             return ScrapeResult(
                 success=False,
-                error=f"Failed after {config.RETRY_MAX_ATTEMPTS} attempts: {e}",
+                error=f"Failed after {settings.RETRY_MAX_ATTEMPTS} attempts: {e}",
                 content_type="pdf",
                 retry_count=retry_count,
             )
@@ -176,9 +176,9 @@ class ScraperService:
 
         @retry(
             retry=retry_if_exception_type(RetryableError),
-            stop=stop_after_attempt(config.RETRY_MAX_ATTEMPTS),
+            stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
             wait=wait_exponential(
-                min=config.RETRY_MIN_WAIT, max=config.RETRY_MAX_WAIT
+                min=settings.RETRY_MIN_WAIT, max=settings.RETRY_MAX_WAIT
             ),
             reraise=True,
         )
@@ -205,7 +205,7 @@ class ScraperService:
         except RetryableError as e:
             return ScrapeResult(
                 success=False,
-                error=f"Failed after {config.RETRY_MAX_ATTEMPTS} attempts: {e}",
+                error=f"Failed after {settings.RETRY_MAX_ATTEMPTS} attempts: {e}",
                 content_type="html",
                 retry_count=retry_count,
             )
@@ -242,10 +242,10 @@ class ScraperService:
         try:
             # Crawl configuration
             run_config = CrawlerRunConfig(
-                word_count_threshold=config.WORD_COUNT_THRESHOLD,
-                exclude_external_links=config.EXCLUDE_EXTERNAL_LINKS,
-                remove_overlay_elements=config.REMOVE_OVERLAY_ELEMENTS,
-                process_iframes=config.PROCESS_IFRAMES,
+                word_count_threshold=settings.WORD_COUNT_THRESHOLD,
+                exclude_external_links=settings.EXCLUDE_EXTERNAL_LINKS,
+                remove_overlay_elements=settings.REMOVE_OVERLAY_ELEMENTS,
+                process_iframes=settings.PROCESS_IFRAMES,
             )
 
             # Execute crawl with timeout

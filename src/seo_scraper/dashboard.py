@@ -14,7 +14,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 
-from .config import config
+from .config import settings
 from .database import db
 from .db_models import PaginatedLogs, ScrapeLog, ScrapeLogSummary, ScrapeStats
 from .models import ScrapeRequest
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 # Path to the static HTML file
-DASHBOARD_HTML = Path(config.TEMPLATES_DIR) / "base.html"
+DASHBOARD_HTML = Path(settings.TEMPLATES_DIR) / "base.html"
 
 
 # =============================================================================

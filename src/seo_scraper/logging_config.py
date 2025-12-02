@@ -7,7 +7,7 @@ import sys
 
 from pythonjsonlogger.json import JsonFormatter as jsonlogger
 
-from .config import config
+from .config import settings
 from .middleware import get_request_id
 
 
@@ -32,7 +32,7 @@ class CustomJsonFormatter(jsonlogger):
 def setup_logging():
     """Configure structured JSON logging."""
     root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, config.LOG_LEVEL))
+    root_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
 
     # Remove existing handlers
     for handler in root_logger.handlers[:]:

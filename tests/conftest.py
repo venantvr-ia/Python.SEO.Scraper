@@ -12,7 +12,7 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 
 from seo_scraper.api import app
-from seo_scraper.config import config
+from seo_scraper.config import settings
 from seo_scraper.database import Database
 from seo_scraper.scraper import ScrapeResult, ScraperService
 
@@ -38,8 +38,8 @@ async def test_db():
         temp_path = Path(f.name)
 
     # Override config
-    original_path = config.DATABASE_PATH
-    config.DATABASE_PATH = temp_path
+    original_path = settings.DATABASE_PATH
+    settings.DATABASE_PATH = temp_path
 
     # Create fresh database instance
     db = Database()
@@ -49,7 +49,7 @@ async def test_db():
 
     # Cleanup
     await db.close()
-    config.DATABASE_PATH = original_path
+    settings.DATABASE_PATH = original_path
     if temp_path.exists():
         temp_path.unlink()
 

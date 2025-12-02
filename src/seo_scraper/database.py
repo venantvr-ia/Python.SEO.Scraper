@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import aiosqlite
 
-from .config import config
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -113,10 +113,10 @@ class Database:
             return
 
         # Create data directory if needed
-        config.DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        settings.DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Connecting to database: {config.DATABASE_PATH}")
-        self._db = await aiosqlite.connect(config.DATABASE_PATH)
+        logger.info(f"Connecting to database: {settings.DATABASE_PATH}")
+        self._db = await aiosqlite.connect(settings.DATABASE_PATH)
 
         # Enable WAL mode for better performance
         await self._db.execute("PRAGMA journal_mode=WAL")
@@ -485,7 +485,7 @@ class Database:
         if not self._db:
             raise RuntimeError("Database not initialized")
 
-        cutoff_date = datetime.now() - timedelta(days=config.MAX_LOGS_RETENTION_DAYS)
+        cutoff_date = datetime.now() - timedelta(days=settings.MAX_LOGS_RETENTION_DAYS)
 
         cursor = await self._db.execute(
             "DELETE FROM scrape_logs WHERE timestamp < ?", (cutoff_date.isoformat(),)

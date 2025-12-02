@@ -10,7 +10,7 @@ from io import BytesIO
 import httpx
 import pymupdf
 
-from .config import config
+from .config import settings
 from .db_models import PDFMetadata
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class PDFScraper:
     async def start(self) -> None:
         """Initialize HTTP client."""
         self._client = httpx.AsyncClient(
-            timeout=config.DEFAULT_TIMEOUT / 1000,
+            timeout=settings.DEFAULT_TIMEOUT / 1000,
             follow_redirects=True,
             headers={
                 "User-Agent": "Mozilla/5.0 (compatible; SEOScraper/2.0; +https://example.com/bot)"
@@ -66,7 +66,7 @@ class PDFScraper:
         if not self._client:
             return False, "", None, "PDF Scraper not initialized"
 
-        timeout_sec = (timeout or config.DEFAULT_TIMEOUT) / 1000
+        timeout_sec = (timeout or settings.DEFAULT_TIMEOUT) / 1000
 
         try:
             logger.info(f"Downloading PDF: {url[:80]}...")
@@ -77,9 +77,9 @@ class PDFScraper:
 
             # Check size
             content_length = len(response.content)
-            max_size = config.MAX_PDF_SIZE_MB * 1024 * 1024
+            max_size = settings.MAX_PDF_SIZE_MB * 1024 * 1024
             if content_length > max_size:
-                error = f"PDF too large: {content_length / 1024 / 1024:.1f}MB (max: {config.MAX_PDF_SIZE_MB}MB)"
+                error = f"PDF too large: {content_length / 1024 / 1024:.1f}MB (max: {settings.MAX_PDF_SIZE_MB}MB)"
                 logger.warning(error)
                 return False, "", None, error
 
