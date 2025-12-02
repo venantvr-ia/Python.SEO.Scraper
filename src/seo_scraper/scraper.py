@@ -231,21 +231,6 @@ class ScraperService:
                 content_type="html",
             )
 
-    # Legacy method for compatibility
-    async def scrape_legacy(
-        self,
-        url: str,
-        timeout: int = config.DEFAULT_TIMEOUT,
-    ) -> tuple[bool, str, str | None]:
-        """
-        Scrape a URL (legacy method for compatibility).
-
-        Returns:
-            Tuple (success, markdown_content, error_message)
-        """
-        result = await self.scrape(url, timeout)
-        return result.success, result.markdown, result.error
-
     @staticmethod
     def _clean_markdown(content: str) -> str:
         """Clean markdown content (limit to 2 newlines max)."""
