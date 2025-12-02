@@ -10,7 +10,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
-
 from seo_scraper.api import app
 from seo_scraper.config import settings
 from seo_scraper.database import Database

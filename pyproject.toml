@@ -35,7 +35,7 @@ dev = [
     "ruff>=0.1.0",
 ]
 queue = [
-    "redis>=5.0.0",
+    "redis>=7.1.0",
     "arq>=0.25.0",
 ]
 
@@ -47,7 +47,7 @@ Homepage = "https://github.com/venantvr/Python.SEO.Scraper"
 Repository = "https://github.com/venantvr/Python.SEO.Scraper"
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=80.9.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
