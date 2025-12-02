@@ -4,8 +4,6 @@ Tests for the FastAPI API.
 """
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from seo_scraper.scraper import ScrapeResult
 
 

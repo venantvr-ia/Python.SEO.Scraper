@@ -19,7 +19,7 @@ class TestDatabaseInitialization:
         """Database should create required tables."""
         # Check that scrape_logs table exists
         async with test_db._db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='scrape_logs'"
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='scrape_logs'"
         ) as cursor:
             row = await cursor.fetchone()
             assert row is not None

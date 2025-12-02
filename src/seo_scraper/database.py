@@ -192,7 +192,7 @@ class Database:
             raise RuntimeError("Database not initialized")
 
         async with self._db.execute(
-            "SELECT * FROM scrape_logs WHERE id = ?", (log_id,)
+                "SELECT * FROM scrape_logs WHERE id = ?", (log_id,)
         ) as cursor:
             row = await cursor.fetchone()
             if row:
@@ -201,15 +201,15 @@ class Database:
         return None
 
     async def get_logs(
-        self,
-        limit: int = 50,
-        offset: int = 0,
-        status: str | None = None,
-        content_type: str | None = None,
-        url_search: str | None = None,
-        date_from: datetime | None = None,
-        date_to: datetime | None = None,
-        search_query: str | None = None,
+            self,
+            limit: int = 50,
+            offset: int = 0,
+            status: str | None = None,
+            content_type: str | None = None,
+            url_search: str | None = None,
+            date_from: datetime | None = None,
+            date_to: datetime | None = None,
+            search_query: str | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         """
         Get logs with pagination and filters.
@@ -277,7 +277,7 @@ class Database:
                     {' AND ' + ' AND '.join(conditions) if conditions else ''}
                 """
                 async with self._db.execute(
-                    count_query, [search_query] + params
+                        count_query, [search_query] + params
                 ) as cursor:
                     total = (await cursor.fetchone())[0]
 
@@ -313,11 +313,11 @@ class Database:
         return logs, total
 
     async def get_logs_cursor(
-        self,
-        cursor: str | None = None,
-        limit: int = 50,
-        status: str | None = None,
-        content_type: str | None = None,
+            self,
+            cursor: str | None = None,
+            limit: int = 50,
+            status: str | None = None,
+            content_type: str | None = None,
     ) -> tuple[list[dict[str, Any]], str | None]:
         """
         Get logs with cursor-based pagination (more efficient for large datasets).
@@ -442,7 +442,7 @@ class Database:
         """
 
         async with self._db.execute(
-            query_recent, (seven_days_ago.isoformat(),)
+                query_recent, (seven_days_ago.isoformat(),)
         ) as cursor:
             rows = await cursor.fetchall()
             stats["daily_stats"] = [

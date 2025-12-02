@@ -51,7 +51,7 @@ class PDFScraper:
         return "application/pdf" in content_type.lower()
 
     async def scrape(
-        self, url: str, timeout: int | None = None
+            self, url: str, timeout: int | None = None
     ) -> tuple[bool, str, PDFMetadata | None, str | None]:
         """
         Download and extract PDF content.
@@ -108,7 +108,7 @@ class PDFScraper:
             return False, "", None, error
 
     def _extract_pdf_content(
-        self, pdf_bytes: BytesIO, file_size: int
+            self, pdf_bytes: BytesIO, file_size: int
     ) -> tuple[str, PDFMetadata]:
         """
         Extract text and metadata from a PDF.

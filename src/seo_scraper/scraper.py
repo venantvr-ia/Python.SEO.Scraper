@@ -95,9 +95,9 @@ class ScraperService:
         return self.crawler is not None
 
     async def scrape(
-        self,
-        url: str,
-        timeout: int = config.DEFAULT_TIMEOUT,
+            self,
+            url: str,
+            timeout: int = config.DEFAULT_TIMEOUT,
     ) -> ScrapeResult:
         """
         Scrape a URL and return content as Markdown with metadata.
@@ -148,8 +148,8 @@ class ScraperService:
             if not result.success and result.error:
                 # Retry on network errors, not on 404 etc.
                 if any(
-                    err in result.error.lower()
-                    for err in ["timeout", "connection", "network"]
+                        err in result.error.lower()
+                        for err in ["timeout", "connection", "network"]
                 ):
                     retry_count += 1
                     logger.warning(
@@ -188,8 +188,8 @@ class ScraperService:
             if not result.success and result.error:
                 # Retry on transient errors
                 if any(
-                    err in result.error.lower()
-                    for err in ["timeout", "connection", "network", "temporary"]
+                        err in result.error.lower()
+                        for err in ["timeout", "connection", "network", "temporary"]
                 ):
                     retry_count += 1
                     logger.warning(

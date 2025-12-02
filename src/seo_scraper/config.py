@@ -31,10 +31,10 @@ class Config:
     # Scraping
     WORD_COUNT_THRESHOLD: int = int(os.getenv("WORD_COUNT_THRESHOLD", "10"))
     EXCLUDE_EXTERNAL_LINKS: bool = (
-        os.getenv("EXCLUDE_EXTERNAL_LINKS", "true").lower() == "true"
+            os.getenv("EXCLUDE_EXTERNAL_LINKS", "true").lower() == "true"
     )
     REMOVE_OVERLAY_ELEMENTS: bool = (
-        os.getenv("REMOVE_OVERLAY_ELEMENTS", "true").lower() == "true"
+            os.getenv("REMOVE_OVERLAY_ELEMENTS", "true").lower() == "true"
     )
     PROCESS_IFRAMES: bool = os.getenv("PROCESS_IFRAMES", "false").lower() == "true"
 

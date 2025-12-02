@@ -62,12 +62,12 @@ async def dashboard_api_stats() -> ScrapeStats:
 
 @router.get("/api/logs")
 async def dashboard_api_logs(
-    page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=10, le=100),
-    status: Literal["success", "error", "timeout"] | None = None,
-    content_type: Literal["html", "pdf", "spa"] | None = None,
-    url_search: str | None = None,
-    search: str | None = None,
+        page: int = Query(1, ge=1),
+        per_page: int = Query(20, ge=10, le=100),
+        status: Literal["success", "error", "timeout"] | None = None,
+        content_type: Literal["html", "pdf", "spa"] | None = None,
+        url_search: str | None = None,
+        search: str | None = None,
 ) -> PaginatedLogs:
     """JSON API for paginated logs."""
     offset = (page - 1) * per_page
@@ -131,10 +131,10 @@ async def dashboard_rescrape(log_id: str):
 # =============================================================================
 @router.get("/api/logs/cursor")
 async def dashboard_api_logs_cursor(
-    cursor: str | None = None,
-    limit: int = Query(50, ge=10, le=100),
-    status: Literal["success", "error", "timeout"] | None = None,
-    content_type: Literal["html", "pdf", "spa"] | None = None,
+        cursor: str | None = None,
+        limit: int = Query(50, ge=10, le=100),
+        status: Literal["success", "error", "timeout"] | None = None,
+        content_type: Literal["html", "pdf", "spa"] | None = None,
 ):
     """
     JSON API for logs with cursor-based pagination.
@@ -161,10 +161,10 @@ async def dashboard_api_logs_cursor(
 # =============================================================================
 @router.get("/export/json")
 async def dashboard_export_json(
-    status: Literal["success", "error", "timeout"] | None = None,
-    content_type: Literal["html", "pdf", "spa"] | None = None,
-    url_search: str | None = None,
-    include_content: bool = Query(False, description="Include markdown content in export"),
+        status: Literal["success", "error", "timeout"] | None = None,
+        content_type: Literal["html", "pdf", "spa"] | None = None,
+        url_search: str | None = None,
+        include_content: bool = Query(False, description="Include markdown content in export"),
 ):
     """Export logs to JSON."""
     import json as json_lib
@@ -209,9 +209,9 @@ async def dashboard_export_json(
 
 @router.get("/export/csv")
 async def dashboard_export_csv(
-    status: Literal["success", "error", "timeout"] | None = None,
-    content_type: Literal["html", "pdf", "spa"] | None = None,
-    url_search: str | None = None,
+        status: Literal["success", "error", "timeout"] | None = None,
+        content_type: Literal["html", "pdf", "spa"] | None = None,
+        url_search: str | None = None,
 ):
     """Export logs to CSV."""
     # Get all logs with filters
