@@ -30,6 +30,35 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
+def log_routes(application: FastAPI) -> None:
+    """Log all registered routes at startup."""
+    print("\n" + "=" * 60)
+    print(f"  SEO Scraper Service v{__version__}")
+    print("=" * 60)
+    print("\nAvailable routes:\n")
+
+    # Collect routes
+    routes_info = []
+    for route in application.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            methods = ", ".join(sorted(route.methods - {"HEAD", "OPTIONS"}))
+            if methods:
+                description = route.description or route.name or ""
+                # Get first line of docstring
+                if description:
+                    description = description.split("\n")[0].strip()
+                routes_info.append((methods, route.path, description))
+
+    # Sort by path
+    routes_info.sort(key=lambda x: x[1])
+
+    # Print routes
+    for methods, path, description in routes_info:
+        print(f"  {methods:6}  {path:30}  {description}")
+
+    print("\n" + "=" * 60 + "\n")
+
+
 # noinspection PyUnusedLocal
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -40,6 +69,9 @@ async def lifespan(_app: FastAPI):
     await db.initialize()
     await scraper_service.start()
     await db.cleanup_old_logs()
+
+    # Log routes after all routers are included
+    log_routes(_app)
 
     yield
 
@@ -175,7 +207,7 @@ async def scrape_url(request: ScrapeRequest) -> ScrapeResponse:
 
 @app.post("/scrape/batch")
 async def scrape_batch(
-    urls: list[HttpUrl], ignore_body_visibility: bool = True
+        urls: list[HttpUrl], ignore_body_visibility: bool = True
 ) -> list[ScrapeResponse]:
     """
     Scrape multiple URLs in parallel.
