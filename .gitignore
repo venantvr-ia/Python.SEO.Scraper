@@ -1,0 +1,62 @@
+# Environnement virtuel
+.venv/
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Tests
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+
+# Logs
+*.log
+logs/
+
+# Playwright (Crawl4AI)
+.playwright/
+playwright-state.json
+
+# Environnement
+.env
+.env.local
+.env.*.local
+
+# Documentation générée
+docs/_build/
+site/
+
+# Fichiers temporaires
+*.tmp
+*.temp
+.cache/
+/tests/samples/

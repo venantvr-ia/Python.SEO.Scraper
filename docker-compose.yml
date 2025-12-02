@@ -1,0 +1,29 @@
+services:
+  seo-scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seo-scraper:latest
+    container_name: seo-scraper
+    ports:
+      - "${PORT:-8001}:8001"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8001
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CRAWLER_HEADLESS=true
+      - DEFAULT_TIMEOUT=${DEFAULT_TIMEOUT:-30000}
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Limites de ressources (optionnel)
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
