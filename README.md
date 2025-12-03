@@ -192,7 +192,7 @@ print("25000" in crawl_result.html)  # True ✓
 2. **Vérifier le markdown Crawl4AI**
 
 ```python
-# Crawl4AI les extrait-il?
+# Crawl4AI les extrait-il ?
 # noinspection PyUnresolvedReferences
 print("25000" in crawl_result.markdown)  # Dépend des options
 ```
