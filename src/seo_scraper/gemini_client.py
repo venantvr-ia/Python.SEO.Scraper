@@ -6,7 +6,6 @@ Provides async interface to Google's Generative AI API.
 """
 import asyncio
 import logging
-from typing import Any
 
 from .config import settings
 
@@ -40,11 +39,11 @@ class GeminiClient:
     """
 
     def __init__(
-        self,
-        api_key: str | None = None,
-        model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
+            self,
+            api_key: str | None = None,
+            model: str | None = None,
+            temperature: float | None = None,
+            max_tokens: int | None = None,
     ):
         """
         Initialize Gemini client.
@@ -121,7 +120,7 @@ class GeminiClient:
         return text
 
     async def generate_with_retry(
-        self, prompt: str, max_retries: int = 2, **kwargs
+            self, prompt: str, max_retries: int = 2, **kwargs
     ) -> str:
         """
         Generate text with retry on failure.

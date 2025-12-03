@@ -34,8 +34,16 @@ class Settings(BaseSettings):
     # Scraping
     WORD_COUNT_THRESHOLD: int = 10
     EXCLUDE_EXTERNAL_LINKS: bool = True
-    REMOVE_OVERLAY_ELEMENTS: bool = True
+    # WARNING: remove_overlay_elements=True can remove important content styled as overlays
+    # (e.g., statistics counters, modals with content). Set to False by default.
+    REMOVE_OVERLAY_ELEMENTS: bool = False
     PROCESS_IFRAMES: bool = False
+
+    # Wait for JS content to load (important for SPAs and lazy-loaded content)
+    # Delay in seconds after page load before capturing HTML
+    DELAY_BEFORE_RETURN: float = 2.0
+    # Optional CSS selector to wait for (e.g., ".content-loaded", "[data-loaded]")
+    WAIT_FOR_SELECTOR: str = ""
 
     # Database (SQLite)
     DATABASE_PATH: Path = Path("data/scraper.db")
@@ -82,6 +90,9 @@ class Settings(BaseSettings):
 
     # Step 4: LLM Sanitizer - Use AI to restructure headings (expensive, disabled by default)
     ENABLE_LLM_SANITIZER: bool = False
+
+    # Include images in output (set to False to strip all ![...](...) from markdown)
+    INCLUDE_IMAGES: bool = True
 
     # Gemini API Configuration (for LLM Sanitizer)
     GEMINI_API_KEY: str = ""

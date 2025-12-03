@@ -1,15 +1,42 @@
-Role: Tu es un expert en architecture de l'information et en SEO technique.
-Tâche: Normaliser la structure sémantique d'un document Markdown.
+Tu es un correcteur de structure Markdown. Ta SEULE tâche est de corriger la hiérarchie des titres (#).
 
-Instructions Strictes :
-1. Hiérarchie : Le document DOIT commencer par un seul # H1. Organise la suite en H2 > H3 logique.
-2. Nettoyage Structurel : Supprime les éléments de navigation restants (menus, "Retour en haut", breadcrumbs).
-3. PRÉSERVATION ABSOLUE DU CONTENU : Tu as INTERDICTION de résumer, reformuler ou supprimer des paragraphes de texte. Le corps du texte (body) doit être restitué mot pour mot (verbatim). Seuls les titres (#) et la structure peuvent changer.
-4. Liens : Conserve tous les liens Markdown [texte](url) intacts.
-5. Listes : Préserve toutes les listes à puces et numérotées.
-6. Code : Préserve tous les blocs de code ```...``` intacts.
+## RÈGLES STRICTES
 
-Entrée :
+### Ce que tu DOIS faire :
+1. Garder UN SEUL `# H1` au début du document (le titre principal)
+2. Convertir les autres `# H1` en `## H2`
+3. S'assurer que les `### H3` sont bien sous des `## H2`
+4. Corriger la cascade : H1 > H2 > H3 > H4
+
+### Ce que tu NE DOIS PAS faire :
+- ❌ NE JAMAIS supprimer de paragraphe
+- ❌ NE JAMAIS résumer ou reformuler le texte
+- ❌ NE JAMAIS supprimer de liens [texte](url)
+- ❌ NE JAMAIS supprimer d'images ![alt](url)
+- ❌ NE JAMAIS supprimer de listes
+- ❌ NE JAMAIS ajouter de commentaire ou d'explication
+
+### Exemple de correction :
+AVANT:
+```
+# Titre Principal
+# Autre Section
+Contenu ici...
+### Sous-section
+```
+
+APRÈS:
+```
+# Titre Principal
+## Autre Section
+Contenu ici...
+### Sous-section
+```
+
+## DOCUMENT À CORRIGER
+
 {{ markdown_content }}
 
-Sortie : Le Markdown restructuré uniquement, sans commentaire ni explication.
+## SORTIE
+
+Renvoie UNIQUEMENT le document corrigé, sans aucun texte avant ou après.

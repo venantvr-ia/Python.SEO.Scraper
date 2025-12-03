@@ -145,6 +145,38 @@ class TestContentPipeline:
 
         assert "![alt]()" not in result
 
+    def test_regex_cleaning_removes_broken_image_artifacts(self):
+        """Should remove ! ! broken image artifacts."""
+        pipeline = ContentPipeline()
+        markdown = "Text ! ! more text."
+
+        result = pipeline._step_regex_cleaning(markdown)
+
+        assert "! !" not in result
+
+    def test_regex_cleaning_removes_video_player_noise(self):
+        """Should remove video player artifacts."""
+        pipeline = ContentPipeline()
+        markdown = "Content\n0:00\n/\nLIVE\n-0:00\nMore content"
+
+        result = pipeline._step_regex_cleaning(markdown)
+
+        assert "0:00" not in result
+        assert "LIVE" not in result
+        assert "Content" in result
+        assert "More content" in result
+
+    def test_regex_cleaning_removes_duplicate_blocks(self):
+        """Should remove duplicate consecutive blocks."""
+        pipeline = ContentPipeline()
+        markdown = "Block A\nLine 2\n\nBlock A\nLine 2\n\nBlock B"
+
+        result = pipeline._step_regex_cleaning(markdown)
+
+        # Should only have one "Block A" section
+        assert result.count("Block A") == 1
+        assert "Block B" in result
+
     def test_extract_text_content(self):
         """Should extract plain text from markdown."""
         text = ContentPipeline._extract_text_content(

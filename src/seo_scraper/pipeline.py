@@ -85,12 +85,12 @@ class ContentPipeline:
         )
 
     async def process(
-        self,
-        html: str,
-        url: str,
-        crawl4ai_markdown: str | None = None,
-        page_title: str | None = None,
-        og_title: str | None = None,
+            self,
+            html: str,
+            url: str,
+            crawl4ai_markdown: str | None = None,
+            page_title: str | None = None,
+            og_title: str | None = None,
     ) -> PipelineResult:
         """
         Process HTML content through the pipeline.
@@ -115,11 +115,30 @@ class ContentPipeline:
             result.steps_applied.append("dom_pruning")
 
         # Step 2: Content Extraction (Trafilatura or Crawl4AI)
+        crawl4ai_len = len(crawl4ai_markdown or "")
         if settings.USE_TRAFILATURA:
             extracted = self._step_trafilatura(current_html)
             if extracted:
-                current_markdown = extracted
-                result.steps_applied.append("trafilatura")
+                # Quality check: if trafilatura extracts < 30% of crawl4ai content,
+                # it's likely being too aggressive (e.g., on marketing pages)
+                trafilatura_len = len(extracted)
+                min_threshold = int(crawl4ai_len * 0.3)
+
+                if trafilatura_len >= min_threshold or crawl4ai_len == 0:
+                    current_markdown = extracted
+                    result.steps_applied.append("trafilatura")
+                    logger.debug(
+                        f"Trafilatura accepted: {trafilatura_len} chars "
+                        f"(threshold: {min_threshold})"
+                    )
+                else:
+                    # Trafilatura too aggressive, use crawl4ai
+                    current_markdown = crawl4ai_markdown or ""
+                    result.steps_applied.append("crawl4ai_trafilatura_short")
+                    logger.debug(
+                        f"Trafilatura too short ({trafilatura_len} < {min_threshold}), "
+                        f"using Crawl4AI ({crawl4ai_len} chars)"
+                    )
             else:
                 # Fallback to Crawl4AI markdown
                 current_markdown = crawl4ai_markdown or ""
@@ -164,20 +183,25 @@ class ContentPipeline:
                 for tag in soup.find_all(tag_name):
                     tag.decompose()
 
-            # Remove elements with suspicious class/id
+            # Collect elements to remove (avoid modifying while iterating)
+            elements_to_remove = []
             for element in soup.find_all(True):
-                classes = element.get("class", [])
-                element_id = element.get("id", "")
+                classes = element.get("class", []) or []
+                element_id = element.get("id", "") or ""
 
                 # Check classes
-                class_str = " ".join(classes) if isinstance(classes, list) else classes
-                if self._pruning_pattern.search(class_str):
-                    element.decompose()
+                class_str = " ".join(classes) if isinstance(classes, list) else str(classes)
+                if class_str and self._pruning_pattern.search(class_str):
+                    elements_to_remove.append(element)
                     continue
 
                 # Check id
                 if element_id and self._pruning_pattern.search(element_id):
-                    element.decompose()
+                    elements_to_remove.append(element)
+
+            # Now remove collected elements
+            for element in elements_to_remove:
+                element.decompose()
 
             logger.debug("DOM pruning completed")
             return str(soup)
@@ -196,13 +220,14 @@ class ContentPipeline:
             import trafilatura
 
             # Extract with markdown output
+            # Note: favor_recall=True to get more content, favor_precision would be too restrictive
             result = trafilatura.extract(
                 html,
                 output_format="markdown",
                 include_links=True,
                 include_images=True,
                 include_tables=True,
-                favor_precision=True,
+                favor_recall=True,
             )
 
             if result:
@@ -217,11 +242,11 @@ class ContentPipeline:
             return None
 
     def _step_title_injection(
-        self,
-        markdown: str,
-        page_title: str | None,
-        og_title: str | None,
-        url: str,
+            self,
+            markdown: str,
+            page_title: str | None,
+            og_title: str | None,
+            url: str,
     ) -> tuple[str, str | None]:
         """
         Step 3: Ensure document starts with H1 heading.
@@ -270,6 +295,8 @@ class ContentPipeline:
         - Remove empty links
         - Remove images without src
         - Clean up whitespace
+        - Remove video player noise
+        - Remove duplicate consecutive blocks
         """
         content = markdown
 
@@ -277,8 +304,59 @@ class ContentPipeline:
         content = re.sub(r"\[]\([^)]*\)", "", content)
         content = re.sub(r"\[[^\]]+]\(\s*\)", "", content)
 
-        # Remove images without proper src
-        content = re.sub(r"!\[([^\]]*)\]\(\s*\)", "", content)
+        # Strip all images if INCLUDE_IMAGES is False
+        if not settings.INCLUDE_IMAGES:
+            content = re.sub(r"!\[[^\]]*\]\([^)]+\)", "", content)
+        else:
+            # Just remove broken images
+            content = re.sub(r"!\[([^\]]*)\]\(\s*\)", "", content)
+
+        # Clean broken image syntax artifacts
+        content = re.sub(r"!\s+!", "", content)  # ! ! artifacts
+        content = re.sub(r"!\s*\n", "\n", content)  # Lone ! at end of line
+
+        # Remove video player noise and accessibility text
+        content = re.sub(r"\n0:00\n", "\n", content)
+        content = re.sub(r"\n/\n", "\n", content)
+        content = re.sub(r"\nLIVE\n", "\n", content)
+        content = re.sub(r"\n-0:00\n", "\n", content)
+        content = re.sub(r"Video Player is loading\.\n?", "", content)
+        content = re.sub(r"To view this video please enable JavaScript.*?Play Video\n?", "", content, flags=re.DOTALL)
+        content = re.sub(r"Play\nMute\nCurrent Time.*?End of dialog window\.\n?", "", content, flags=re.DOTALL)
+        content = re.sub(r"This is a modal window\..*?Close Modal Dialog\n?", "", content, flags=re.DOTALL)
+        content = re.sub(r"Beginning of dialog window\..*?End of dialog window\.\n?", "", content, flags=re.DOTALL)
+        content = re.sub(r"No compatible source was found for this media\.\n?", "", content)
+
+        # Remove carousel navigation artifacts
+        content = re.sub(r"\n[‹›]+\n", "\n", content)
+
+        # Remove duplicate consecutive paragraphs (carousel/slider duplicates)
+        lines = content.split("\n")
+        seen_blocks: list[str] = []
+        result_lines: list[str] = []
+        current_block: list[str] = []
+
+        for line in lines:
+            stripped = line.strip()
+            if stripped == "":
+                # End of block
+                if current_block:
+                    block_text = "\n".join(current_block)
+                    if block_text not in seen_blocks:
+                        seen_blocks.append(block_text)
+                        result_lines.extend(current_block)
+                    current_block = []
+                result_lines.append(line)
+            else:
+                current_block.append(line)
+
+        # Handle last block
+        if current_block:
+            block_text = "\n".join(current_block)
+            if block_text not in seen_blocks:
+                result_lines.extend(current_block)
+
+        content = "\n".join(result_lines)
 
         # Normalize spaces/tabs on "empty" lines
         content = re.sub(r"\n[ \t]+\n", "\n\n", content)
@@ -314,12 +392,31 @@ class ContentPipeline:
                 logger.warning("LLM sanitizer returned empty response")
                 return None
 
+            # Clean response: remove markdown code blocks if Gemini wrapped the output
+            cleaned_response = response.strip()
+            if cleaned_response.startswith("```markdown"):
+                cleaned_response = cleaned_response[11:]
+            elif cleaned_response.startswith("```"):
+                cleaned_response = cleaned_response[3:]
+            if cleaned_response.endswith("```"):
+                cleaned_response = cleaned_response[:-3]
+            cleaned_response = cleaned_response.strip()
+
             # Sanity check: content loss threshold
             original_text = self._extract_text_content(markdown)
-            sanitized_text = self._extract_text_content(response)
+            sanitized_text = self._extract_text_content(cleaned_response)
+
+            logger.debug(
+                f"LLM sanitizer comparison",
+                extra={
+                    "original_len": len(original_text),
+                    "sanitized_len": len(sanitized_text),
+                    "response_preview": cleaned_response[:200] if cleaned_response else "empty",
+                },
+            )
 
             if len(original_text) == 0:
-                return response
+                return cleaned_response
 
             loss_percent = (1 - len(sanitized_text) / len(original_text)) * 100
 
@@ -333,7 +430,7 @@ class ContentPipeline:
             logger.info(
                 f"LLM sanitizer applied successfully (content loss: {loss_percent:.1f}%)"
             )
-            return response
+            return cleaned_response
 
         except ImportError:
             logger.warning(

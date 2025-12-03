@@ -2,6 +2,13 @@
 """
 Test fonctionnel de scraping - Affiche le contenu markdown d'une URL.
 
+Utilise le ScraperService avec le ContentPipeline complet:
+- DOM Pruning (suppression nav, footer, scripts, ads)
+- Trafilatura (extraction contenu principal)
+- Title Injection (ajout H1 si manquant)
+- Regex Cleaning (normalisation whitespace)
+- LLM Sanitizer (restructuration IA, si activé)
+
 Usage:
     python scripts/test_scrape.py [URL] [--save]
 
@@ -10,57 +17,47 @@ Exemple:
     python scripts/test_scrape.py https://www.concilio.com/chirurgie-plastique --save
 """
 import asyncio
-import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-
-def clean_markdown(content: str) -> str:
-    """Nettoie le markdown (max 2 retours à la ligne)."""
-    cleaned = content
-    # Supprimer les espaces/tabs sur les lignes "vides"
-    cleaned = re.sub(r"\n[ \t]+\n", "\n\n", cleaned)
-    # Plusieurs passes pour gérer les cas imbriqués
-    while "\n\n\n" in cleaned:
-        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    return cleaned.strip()
+from seo_scraper.scraper import scraper_service
 
 
 async def scrape_url(url: str, save: bool = False) -> None:
-    """Scrape une URL et affiche le contenu markdown."""
+    """Scrape une URL via ScraperService avec le pipeline complet."""
     print(f"\n{'=' * 60}")
     print(f"🔍 Scraping: {url}")
     print(f"{'=' * 60}\n")
 
-    browser_config = BrowserConfig(headless=True, verbose=False)
-    crawler = AsyncWebCrawler(config=browser_config)
-
     try:
-        await crawler.start()
+        # Démarrer le service
+        await scraper_service.start()
 
-        run_config = CrawlerRunConfig(
-            word_count_threshold=10,
-            exclude_external_links=True,
-            remove_overlay_elements=True,
-            process_iframes=False,
-        )
-
-        result = await asyncio.wait_for(
-            crawler.arun(url=url, config=run_config),
-            timeout=30,
-        )
+        # Scraper avec le pipeline complet
+        result = await scraper_service.scrape(url, timeout=30000)
 
         if result.success:
-            markdown = clean_markdown(result.markdown or "")
-            title = result.metadata.get("title", "N/A") if result.metadata else "N/A"
+            markdown = result.markdown
+            title = result.extracted_title or "N/A"
 
             print("✅ Scraping réussi!\n")
             print(f"📊 Statistiques:")
             print(f"   - Longueur du markdown: {len(markdown)} caractères")
-            print(f"   - Titre: {title}")
+            print(f"   - Titre extrait: {title}")
+            print(f"   - Type de contenu: {result.content_type}")
+            print(f"   - Liens trouvés: {result.links_count}")
+            print(f"   - Images trouvées: {result.images_count}")
+            print(f"   - Durée: {result.duration_ms}ms")
+
+            if result.pipeline_steps:
+                print(f"   - Pipeline steps: {', '.join(result.pipeline_steps)}")
+
+            if result.retry_count > 0:
+                print(f"   - Retries: {result.retry_count}")
 
             if save:
                 # Sauvegarde dans tests/samples/
@@ -76,8 +73,11 @@ async def scrape_url(url: str, save: bool = False) -> None:
                     f.write(f"# Scrape de {parsed.netloc}{parsed.path}\n\n")
                     f.write(f"> URL: {url}\n")
                     f.write(f"> Titre: {title}\n")
-                    f.write(f"> Longueur: {len(markdown)} caractères\n\n")
-                    f.write("---\n\n")
+                    f.write(f"> Longueur: {len(markdown)} caractères\n")
+                    f.write(f"> Type: {result.content_type}\n")
+                    if result.pipeline_steps:
+                        f.write(f"> Pipeline: {', '.join(result.pipeline_steps)}\n")
+                    f.write("\n---\n\n")
                     f.write(markdown)
 
                 print(f"\n💾 Sauvegardé: {filepath}")
@@ -87,21 +87,25 @@ async def scrape_url(url: str, save: bool = False) -> None:
                 print(f"{'─' * 60}\n")
                 print(markdown)
         else:
-            print(f"❌ Échec du scraping: {result.error_message}")
+            print(f"❌ Échec du scraping: {result.error}")
+            if result.http_status_code:
+                print(f"   - HTTP Status: {result.http_status_code}")
 
     except asyncio.TimeoutError:
         print("❌ Timeout - La page a mis trop de temps à charger")
     except Exception as e:
         print(f"❌ Erreur: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
-        await crawler.close()
+        await scraper_service.stop()
 
 
 def main():
     args = sys.argv[1:]
     save = "--save" in args
     args = [a for a in args if a != "--save"]
-    url = args[0] if args else "https://www.concilio.com/chirurgie-plastique"
+    url = args[0] if args else "https://www.concilio.com"
     asyncio.run(scrape_url(url, save=save))
 
 

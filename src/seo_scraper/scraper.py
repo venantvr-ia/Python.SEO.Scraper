@@ -245,13 +245,23 @@ class ScraperService:
         logger.info("Scraping URL", extra={"url": url[:80]})
 
         try:
-            # Crawl configuration
-            run_config = CrawlerRunConfig(
-                word_count_threshold=settings.WORD_COUNT_THRESHOLD,
-                exclude_external_links=settings.EXCLUDE_EXTERNAL_LINKS,
-                remove_overlay_elements=settings.REMOVE_OVERLAY_ELEMENTS,
-                process_iframes=settings.PROCESS_IFRAMES,
-            )
+            # Crawl configuration with JS wait options
+            config_kwargs = {
+                "word_count_threshold": settings.WORD_COUNT_THRESHOLD,
+                "exclude_external_links": settings.EXCLUDE_EXTERNAL_LINKS,
+                "remove_overlay_elements": settings.REMOVE_OVERLAY_ELEMENTS,
+                "process_iframes": settings.PROCESS_IFRAMES,
+            }
+
+            # Add delay to wait for lazy-loaded JS content
+            if settings.DELAY_BEFORE_RETURN > 0:
+                config_kwargs["delay_before_return_html"] = settings.DELAY_BEFORE_RETURN
+
+            # Optionally wait for a specific CSS selector
+            if settings.WAIT_FOR_SELECTOR:
+                config_kwargs["wait_for"] = f"css:{settings.WAIT_FOR_SELECTOR}"
+
+            run_config = CrawlerRunConfig(**config_kwargs)
 
             # Execute crawl with timeout
             crawl_result = await asyncio.wait_for(
