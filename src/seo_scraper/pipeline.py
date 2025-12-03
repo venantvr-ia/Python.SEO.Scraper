@@ -330,7 +330,8 @@ class ContentPipeline:
         # Remove carousel navigation artifacts
         content = re.sub(r"\n[‹›]+\n", "\n", content)
 
-        # Remove duplicate consecutive paragraphs (carousel/slider duplicates)
+        # Remove duplicate CONSECUTIVE paragraphs only (carousel/slider duplicates)
+        # Note: Only removes duplicates if they appear back-to-back, not globally
         lines = content.split("\n")
         seen_blocks: list[str] = []
         result_lines: list[str] = []
@@ -342,7 +343,8 @@ class ContentPipeline:
                 # End of block
                 if current_block:
                     block_text = "\n".join(current_block)
-                    if block_text not in seen_blocks:
+                    # Only check against the LAST block (consecutive duplicates only)
+                    if not seen_blocks or block_text != seen_blocks[-1]:
                         seen_blocks.append(block_text)
                         result_lines.extend(current_block)
                     current_block = []
@@ -353,7 +355,7 @@ class ContentPipeline:
         # Handle last block
         if current_block:
             block_text = "\n".join(current_block)
-            if block_text not in seen_blocks:
+            if not seen_blocks or block_text != seen_blocks[-1]:
                 result_lines.extend(current_block)
 
         content = "\n".join(result_lines)

@@ -166,15 +166,28 @@ class TestContentPipeline:
         assert "Content" in result
         assert "More content" in result
 
-    def test_regex_cleaning_removes_duplicate_blocks(self):
-        """Should remove duplicate consecutive blocks."""
+    def test_regex_cleaning_removes_consecutive_duplicate_blocks(self):
+        """Should remove only consecutive duplicate blocks, not global duplicates."""
         pipeline = ContentPipeline()
+        # Consecutive duplicates should be removed
         markdown = "Block A\nLine 2\n\nBlock A\nLine 2\n\nBlock B"
 
         result = pipeline._step_regex_cleaning(markdown)
 
-        # Should only have one "Block A" section
+        # Consecutive duplicate removed - only one "Block A"
         assert result.count("Block A") == 1
+        assert "Block B" in result
+
+    def test_regex_cleaning_keeps_non_consecutive_duplicates(self):
+        """Should keep duplicate blocks if they are not consecutive."""
+        pipeline = ContentPipeline()
+        # Non-consecutive duplicates should be kept (legitimate repeated content)
+        markdown = "Block A\n\nBlock B\n\nBlock A"
+
+        result = pipeline._step_regex_cleaning(markdown)
+
+        # Both "Block A" should remain (not consecutive)
+        assert result.count("Block A") == 2
         assert "Block B" in result
 
     def test_extract_text_content(self):

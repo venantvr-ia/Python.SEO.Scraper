@@ -157,16 +157,19 @@ class Database:
 
         log_id = str(uuid4())
 
+        # Copy to avoid mutating the original dict (side effect)
+        data = log_data.copy()
+
         # Serialize JSON fields
         json_fields = ["response_headers", "redirects", "ssl_info"]
         for field in json_fields:
-            if field in log_data and log_data[field] is not None:
-                log_data[field] = json.dumps(log_data[field])
+            if field in data and data[field] is not None:
+                data[field] = json.dumps(data[field])
 
         # Prepare columns and values
-        columns = ["id"] + list(log_data.keys())
+        columns = ["id"] + list(data.keys())
         placeholders = ", ".join(["?"] * len(columns))
-        values = [log_id] + list(log_data.values())
+        values = [log_id] + list(data.values())
 
         query = (
             f"INSERT INTO scrape_logs ({', '.join(columns)}) VALUES ({placeholders})"
