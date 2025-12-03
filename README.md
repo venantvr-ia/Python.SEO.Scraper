@@ -2,47 +2,17 @@
 
 Micro-service FastAPI de scraping haute performance avec [Crawl4AI](https://github.com/unclecode/crawl4ai).
 
-## 📋 Fonctionnalités
+## Fonctionnalités
 
-- 🚀 Scraping ultra-rapide avec Crawl4AI et Playwright
-- 🎯 API REST simple et intuitive
-- 📝 Export en Markdown nettoyé
-- ⚡ Support du scraping parallèle (batch)
-- 🔒 Gestion robuste des erreurs et timeouts
-- 📊 Health check intégré
-- 🐳 Prêt pour Docker
-- 📚 Documentation Swagger automatique
+- Scraping ultra-rapide avec Crawl4AI et Playwright
+- Pipeline de nettoyage Markdown configurable (DOM pruning, Trafilatura, LLM)
+- Support PDF natif avec extraction de métadonnées
+- API REST simple avec batch processing
+- Dashboard d'audit intégré
+- Configuration 100% typée avec Pydantic
+- Prêt pour Docker
 
-## 🏗️ Structure du projet
-
-```
-Python.SEO.Scraper/
-├── src/
-│   └── seo_scraper/
-│       ├── __init__.py       # Exports publics
-│       ├── __main__.py       # Point d'entrée CLI
-│       ├── api.py            # Endpoints FastAPI
-│       ├── config.py         # Configuration centralisée
-│       ├── models.py         # Modèles Pydantic
-│       └── scraper.py        # Service de scraping
-├── tests/
-│   ├── samples/              # Fichiers MD de test
-│   ├── __init__.py
-│   ├── conftest.py           # Configuration pytest
-│   ├── test_api.py           # Tests API
-│   └── test_models.py        # Tests modèles
-├── scripts/
-│   └── test_scrape.py        # Script de test fonctionnel
-├── Dockerfile                # Image Docker
-├── docker-compose.yml        # Orchestration Docker
-├── .dockerignore
-├── .env.example              # Exemple de configuration
-├── pyproject.toml            # Configuration du projet
-├── Makefile                  # Commandes de développement
-└── README.md
-```
-
-## 🚀 Installation
+## Installation
 
 ### Prérequis
 
@@ -52,112 +22,123 @@ Python.SEO.Scraper/
 ### Installation rapide
 
 ```bash
-# Cloner le dépôt
 git clone <repo-url>
 cd Python.SEO.Scraper
 
 # Installer les dépendances
-make install
-
-# Ou pour le développement
 make install-dev
-```
 
-### Configuration
-
-Copier le fichier d'exemple et l'adapter si nécessaire :
-
-```bash
+# Copier la configuration
 cp .env.example .env
 ```
 
-Variables d'environnement disponibles :
+## Configuration
 
-| Variable           | Défaut    | Description                                 |
-|--------------------|-----------|---------------------------------------------|
-| `HOST`             | `0.0.0.0` | Adresse d'écoute du serveur                 |
-| `PORT`             | `8001`    | Port d'écoute                               |
-| `LOG_LEVEL`        | `INFO`    | Niveau de log (DEBUG, INFO, WARNING, ERROR) |
-| `CRAWLER_HEADLESS` | `true`    | Mode headless pour le navigateur            |
-| `DEFAULT_TIMEOUT`  | `30000`   | Timeout par défaut (ms)                     |
+Toute la configuration est typée avec **Pydantic BaseSettings** et chargée depuis `.env`.
 
-## 🎯 Utilisation
+### Serveur
 
-### Lancement du service
+| Variable    | Type    | Défaut    | Description                           |
+|-------------|---------|-----------|---------------------------------------|
+| `HOST`      | str     | `0.0.0.0` | Adresse d'écoute                      |
+| `PORT`      | int     | `8001`    | Port d'écoute                         |
+| `LOG_LEVEL` | Literal | `INFO`    | DEBUG, INFO, WARNING, ERROR, CRITICAL |
+
+### Crawler
+
+| Variable                  | Type | Défaut  | Description                        |
+|---------------------------|------|---------|------------------------------------|
+| `CRAWLER_HEADLESS`        | bool | `true`  | Mode headless Playwright           |
+| `CRAWLER_VERBOSE`         | bool | `false` | Logs verbeux du crawler            |
+| `DEFAULT_TIMEOUT`         | int  | `30000` | Timeout par défaut (ms)            |
+| `WORD_COUNT_THRESHOLD`    | int  | `10`    | Seuil minimum de mots par bloc     |
+| `EXCLUDE_EXTERNAL_LINKS`  | bool | `true`  | Exclure les liens externes         |
+| `REMOVE_OVERLAY_ELEMENTS` | bool | `false` | Supprimer les overlays (voir note) |
+| `PROCESS_IFRAMES`         | bool | `false` | Traiter les iframes                |
+
+> **Note sur REMOVE_OVERLAY_ELEMENTS**: Cette option peut supprimer du contenu important stylisé en overlay (compteurs de stats, modals avec contenu). Laissez à `false` par défaut.
+
+### Attente JavaScript (SPAs)
+
+| Variable              | Type  | Défaut | Description                                          |
+|-----------------------|-------|--------|------------------------------------------------------|
+| `DELAY_BEFORE_RETURN` | float | `2.0`  | Délai (secondes) après chargement avant capture HTML |
+| `WAIT_FOR_SELECTOR`   | str   | `""`   | Sélecteur CSS à attendre (ex: `.content-loaded`)     |
+
+Ces options sont cruciales pour les SPAs avec contenu chargé dynamiquement (compteurs animés, lazy loading).
+
+### Pipeline de nettoyage
+
+| Variable                | Type | Défaut  | Description                                   |
+|-------------------------|------|---------|-----------------------------------------------|
+| `ENABLE_DOM_PRUNING`    | bool | `true`  | Étape 1: Supprimer nav, footer, scripts, ads  |
+| `USE_TRAFILATURA`       | bool | `true`  | Étape 2: Extraction contenu principal         |
+| `ENABLE_REGEX_CLEANING` | bool | `true`  | Étape 3: Nettoyage regex (newlines, doublons) |
+| `ENABLE_LLM_SANITIZER`  | bool | `false` | Étape 4: Restructuration IA des titres        |
+| `INCLUDE_IMAGES`        | bool | `true`  | Inclure les images dans le markdown           |
+
+### Gemini API (LLM Sanitizer)
+
+| Variable                       | Type  | Défaut             | Description                  |
+|--------------------------------|-------|--------------------|------------------------------|
+| `GEMINI_API_KEY`               | str   | `""`               | Clé API Google Gemini        |
+| `GEMINI_MODEL`                 | str   | `gemini-2.0-flash` | Modèle à utiliser            |
+| `GEMINI_TEMPERATURE`           | float | `0.2`              | Température de génération    |
+| `GEMINI_MAX_TOKENS`            | int   | `8192`             | Tokens max en sortie         |
+| `LLM_MAX_CONTENT_LOSS_PERCENT` | float | `10.0`             | Seuil de rejet si perte > X% |
+
+### Autres
+
+| Variable                  | Type      | Défaut            | Description                       |
+|---------------------------|-----------|-------------------|-----------------------------------|
+| `DATABASE_PATH`           | Path      | `data/scraper.db` | Chemin SQLite                     |
+| `DASHBOARD_ENABLED`       | bool      | `true`            | Activer le dashboard `/dashboard` |
+| `MAX_CONCURRENT_BROWSERS` | int       | `5`               | Limite de browsers parallèles     |
+| `RETRY_MAX_ATTEMPTS`      | int       | `3`               | Tentatives max sur erreur réseau  |
+| `CORS_ORIGINS`            | List[str] | `["*"]`           | Origins CORS autorisées           |
+
+## Pipeline de traitement
+
+Le contenu HTML passe par plusieurs étapes configurables:
+
+| Étape | Nom             | Description                                                 |
+|-------|-----------------|-------------------------------------------------------------|
+| 1     | DOM Pruning     | BeautifulSoup supprime nav, footer, scripts, cookie banners |
+| 2     | Trafilatura     | Extraction intelligente du contenu principal                |
+| 3     | Title Injection | Ajout H1 si absent (depuis og:title ou URL)                 |
+| 4     | Regex Cleaning  | Normalisation newlines, suppression doublons                |
+| 5     | LLM Sanitizer   | Correction cascade H1 > H2 > H3 via Gemini                  |
+
+Le pipeline inclut un **fallback intelligent**: si Trafilatura extrait moins de 30% du contenu Crawl4AI, le système utilise automatiquement le markdown Crawl4AI pour éviter la perte de données sur les pages marketing.
+
+## Utilisation
+
+### Lancement
 
 ```bash
-# Mode production
-make run
-
-# Mode développement (avec auto-reload)
-make run-dev
-
-# Ou directement avec le CLI installé
-seo-scraper
+make run-dev    # Mode développement (auto-reload)
+make run        # Mode production
 ```
 
-Le service démarre sur `http://localhost:8001`
-
-Documentation interactive : `http://localhost:8001/docs`
+Service disponible sur `http://localhost:8001`
 
 ### API Endpoints
 
-#### `GET /health`
-
-Vérifie l'état du service.
+**GET /health** - État du service
 
 ```bash
 curl http://localhost:8001/health
 ```
 
-Réponse :
-
-```json
-{
-  "status": "healthy",
-  "crawler_ready": true,
-  "version": "1.0.0"
-}
-```
-
-#### `POST /scrape`
-
-Scrape une URL et retourne le contenu en Markdown.
+**POST /scrape** - Scraper une URL
 
 ```bash
 curl -X POST http://localhost:8001/scrape \
   -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com",
-    "timeout": 30000
-  }'
+  -d '{"url": "https://example.com", "timeout": 30000}'
 ```
 
-**Request:**
-
-```json
-{
-  "url": "https://example.com",
-  "ignore_body_visibility": true,
-  "timeout": 30000
-}
-```
-
-**Response:**
-
-```json
-{
-  "url": "https://example.com",
-  "success": true,
-  "markdown": "# Example Domain\n\nThis domain is for use...",
-  "content_length": 1234,
-  "error": null
-}
-```
-
-#### `POST /scrape/batch`
-
-Scrape plusieurs URLs en parallèle.
+**POST /scrape/batch** - Scraper plusieurs URLs
 
 ```bash
 curl -X POST http://localhost:8001/scrape/batch \
@@ -165,164 +146,105 @@ curl -X POST http://localhost:8001/scrape/batch \
   -d '["https://example.com", "https://example.org"]'
 ```
 
-**Response:** Array de `ScrapeResponse`
+### Script de test
 
-### Utilisation en Python
+```bash
+# Afficher le markdown
+make scrape URL=https://example.com
+
+# Sauvegarder dans tests/samples/
+make scrape-save URL=https://example.com
+```
+
+## Tests
+
+```bash
+make test          # Exécuter les tests (82 tests)
+make test-cov      # Tests avec couverture
+make lint          # Vérifier le code
+make format        # Formater le code
+```
+
+## Docker
+
+```bash
+docker compose up -d        # Lancer
+docker compose logs -f      # Logs
+docker compose down         # Arrêter
+```
+
+## Debugging: cas réel
+
+### Problème: statistiques manquantes
+
+Sur `https://www.concilio.com`, les compteurs (25000 médecins, 5000 pathologies, etc.) n'apparaissaient pas dans le markdown final.
+
+### Méthode de debug
+
+1. **Vérifier le HTML brut**
 
 ```python
-import httpx
-
-# Client pour le service
-client = httpx.Client(base_url="http://localhost:8001")
-
-# Scraper une URL
-response = client.post("/scrape", json={
-    "url": "https://example.com",
-    "timeout": 60000
-})
-data = response.json()
-
-if data["success"]:
-    print(f"Contenu: {data['markdown'][:100]}...")
-else:
-    print(f"Erreur: {data['error']}")
+# Le HTML contient-il les données?
+# noinspection PyUnresolvedReferences
+print("25000" in crawl_result.html)  # True ✓
 ```
 
-## 🧪 Tests
-
-```bash
-# Exécuter tous les tests
-make test
-
-# Tests avec couverture
-make test-cov
-
-# Rapport HTML de couverture généré dans htmlcov/
-```
-
-## 🛠️ Développement
-
-### Commandes disponibles
-
-```bash
-# Installation
-make install           # Installation production
-make install-dev       # Installation développement
-
-# Lancement
-make run               # Lancer en production
-make run-dev           # Lancer en mode dev (auto-reload)
-
-# Tests & Qualité
-make test              # Exécuter les tests
-make test-cov          # Tests avec couverture
-make lint              # Vérifier le code (ruff)
-make format            # Formater le code (black)
-make check-format      # Vérifier le formatage
-
-# Scraping
-make scrape            # Test de scraping (URL=... optionnel)
-make scrape-save       # Scrape et sauvegarde dans tests/samples/
-
-# Utilitaires
-make clean             # Nettoyer les fichiers temp
-make clean-all         # Nettoyage complet (+ venv)
-make check             # Vérifier si le service tourne
-make status            # Afficher le statut détaillé
-
-# Docker
-make docker-build      # Construire l'image Docker
-make docker-run        # Lancer avec docker compose
-make docker-stop       # Arrêter le conteneur
-make docker-logs       # Voir les logs
-```
-
-### Qualité du code
-
-Le projet utilise :
-
-- **black** pour le formatage
-- **ruff** pour le linting
-- **pytest** pour les tests
-
-```bash
-# Formatter automatiquement
-make format
-
-# Vérifier sans modifier
-make lint
-make check-format
-```
-
-## 🐳 Docker
-
-### Avec Docker Compose (recommandé)
-
-```bash
-# Construire et lancer
-docker compose up -d
-
-# Voir les logs
-docker compose logs -f
-
-# Arrêter
-docker compose down
-```
-
-### Avec Docker directement
-
-```bash
-# Construire l'image
-docker build -t seo-scraper .
-
-# Lancer le conteneur
-docker run -d \
-  --name seo-scraper \
-  -p 8001:8001 \
-  -e LOG_LEVEL=INFO \
-  -e DEFAULT_TIMEOUT=30000 \
-  seo-scraper
-
-# Vérifier le statut
-docker logs seo-scraper
-curl http://localhost:8001/health
-```
-
-### Configuration Docker
-
-Variables d'environnement disponibles :
-
-```yaml
-environment:
-  - HOST=0.0.0.0
-  - PORT=8001
-  - LOG_LEVEL=INFO
-  - CRAWLER_HEADLESS=true
-  - DEFAULT_TIMEOUT=30000
-```
-
-### Health Check
-
-Le conteneur inclut un health check automatique qui vérifie `/health` toutes les 30 secondes.
-
-## 🔗 Intégration avec Python.SEO.Gemini
-
-Ce micro-service est conçu pour être utilisé avec Python.SEO.Gemini :
+2. **Vérifier le markdown Crawl4AI**
 
 ```python
-# Dans le .env de Python.SEO.Gemini
-SCRAPER_SERVICE_URL = "http://localhost:8001"
-SCRAPER_TIMEOUT = 60
+# Crawl4AI les extrait-il?
+# noinspection PyUnresolvedReferences
+print("25000" in crawl_result.markdown)  # Dépend des options
 ```
 
-## 📝 Licence
+3. **Isoler le coupable par élimination**
+
+```python
+# Tester chaque option séparément
+for remove_overlay in [False, True]:
+    # noinspection PyUnresolvedReferences
+    run_config = CrawlerRunConfig(remove_overlay_elements=remove_overlay)
+    # noinspection PyUnresolvedReferences
+    result = crawler.arun(url, config=run_config)
+    print(f"remove_overlay={remove_overlay}: {'25000' in result.markdown}")
+```
+
+4. **Résultat**
+
+```
+remove_overlay_elements=False: 16546 chars, 25000: True
+remove_overlay_elements=True:  12435 chars, 25000: False  ← Coupable!
+```
+
+### Cause
+
+L'option `remove_overlay_elements=True` de Crawl4AI identifiait la section des statistiques comme un "overlay" (probablement à cause du CSS/positionnement) et la supprimait.
+
+### Solution
+
+Changer la valeur par défaut de `REMOVE_OVERLAY_ELEMENTS` à `false` dans la configuration.
+
+### Leçon
+
+Quand du contenu disparaît dans le pipeline, isoler chaque étape avec des tests binaires (on/off) pour identifier rapidement le coupable.
+
+## Structure du projet
+
+```
+src/seo_scraper/
+├── api.py              # Endpoints FastAPI
+├── config.py           # Configuration Pydantic (100% typée)
+├── scraper.py          # Service de scraping avec retry
+├── pipeline.py         # Pipeline de nettoyage markdown
+├── gemini_client.py    # Client API Gemini async
+├── pdf_scraper.py      # Extraction PDF
+├── database.py         # SQLite pour logs
+├── dashboard.py        # Dashboard d'audit
+└── templates/
+    └── prompts/
+        └── sanitizer.j2  # Prompt Jinja2 pour LLM
+```
+
+## Licence
 
 MIT
-
-## 🤝 Contribution
-
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une PR.
-
-## 📞 Support
-
-Pour toute question ou problème, ouvrez une issue sur GitHub.
