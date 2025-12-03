@@ -4,7 +4,7 @@
 FROM python:3.11-slim
 
 # Métadonnées
-LABEL maintainer="RVV"
+LABEL maintainer="venantvr"
 LABEL description="Micro-service FastAPI de scraping avec Crawl4AI, support PDF et dashboard d'audit"
 LABEL version="2.0.0"
 
