@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 Scraping service using Crawl4AI with PDF support.
+
+Features:
+- Browser crash recovery with automatic restart
+- Retry with exponential backoff (tenacity)
+- Concurrency control via semaphore
+- PDF extraction support
 """
 import asyncio
 import logging
@@ -22,6 +28,19 @@ from .pdf_scraper import PDFScraper, compute_content_hash
 from .pipeline import content_pipeline
 
 logger = logging.getLogger(__name__)
+
+# Error patterns indicating browser crash (requires restart)
+BROWSER_CRASH_PATTERNS = [
+    "browser has been closed",
+    "browser disconnected",
+    "target closed",
+    "connection refused",
+    "protocol error",
+    "session closed",
+    "page crashed",
+    "context closed",
+    "playwright._impl._errors",
+]
 
 
 @dataclass
@@ -61,8 +80,26 @@ class RetryableError(Exception):
     pass
 
 
+class BrowserCrashError(Exception):
+    """Exception indicating browser crash - requires crawler restart."""
+
+    pass
+
+
+def _is_browser_crash(error_msg: str) -> bool:
+    """Check if error message indicates a browser crash."""
+    error_lower = error_msg.lower()
+    return any(pattern in error_lower for pattern in BROWSER_CRASH_PATTERNS)
+
+
 class ScraperService:
-    """Scraping service with crawler lifecycle management and concurrency control."""
+    """Scraping service with crawler lifecycle management and concurrency control.
+
+    Features:
+    - Automatic browser crash recovery with restart
+    - Concurrency control via semaphore
+    - Retry with exponential backoff
+    """
 
     def __init__(self):
         self.crawler: AsyncWebCrawler | None = None
@@ -73,6 +110,9 @@ class ScraperService:
         )
         # Semaphore for browser concurrency control
         self._semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_BROWSERS)
+        # Lock to prevent multiple simultaneous restarts
+        self._restart_lock = asyncio.Lock()
+        self._restart_count = 0
 
     async def start(self):
         """Initialize and start the crawler."""
@@ -89,10 +129,53 @@ class ScraperService:
         """Stop the crawler gracefully."""
         logger.info("Closing crawler...")
         if self.crawler:
-            await self.crawler.close()
+            try:
+                await self.crawler.close()
+            except Exception as e:
+                logger.warning(f"Error closing crawler: {e}")
             self.crawler = None
         await self._pdf_scraper.stop()
         logger.info("Crawler closed")
+
+    async def _restart_crawler(self) -> bool:
+        """
+        Restart the crawler after a crash.
+
+        Uses a lock to prevent multiple simultaneous restarts.
+
+        Returns:
+            True if restart successful, False otherwise
+        """
+        async with self._restart_lock:
+            self._restart_count += 1
+            logger.warning(
+                f"Restarting crawler (restart #{self._restart_count})",
+                extra={"restart_count": self._restart_count},
+            )
+
+            try:
+                # Close existing crawler if any
+                if self.crawler:
+                    try:
+                        await self.crawler.close()
+                    except Exception:
+                        pass
+                    self.crawler = None
+
+                # Create and start new crawler
+                self.crawler = AsyncWebCrawler(config=self._browser_config)
+                await self.crawler.start()
+
+                logger.info(
+                    "Crawler restarted successfully",
+                    extra={"restart_count": self._restart_count},
+                )
+                return True
+
+            except Exception as e:
+                logger.error(f"Failed to restart crawler: {e}")
+                self.crawler = None
+                return False
 
     @property
     def is_ready(self) -> bool:
@@ -176,11 +259,18 @@ class ScraperService:
             )
 
     async def _scrape_html_with_retry(self, url: str, timeout: int) -> ScrapeResult:
-        """Scrape HTML with retry logic."""
+        """
+        Scrape HTML with retry logic and browser crash recovery.
+
+        Handles:
+        - Transient network errors (timeout, connection) via retry
+        - Browser crashes via automatic restart
+        """
         retry_count = 0
+        browser_restarted = False
 
         @retry(
-            retry=retry_if_exception_type(RetryableError),
+            retry=retry_if_exception_type((RetryableError, BrowserCrashError)),
             stop=stop_after_attempt(settings.RETRY_MAX_ATTEMPTS),
             wait=wait_exponential(
                 min=settings.RETRY_MIN_WAIT, max=settings.RETRY_MAX_WAIT
@@ -188,12 +278,30 @@ class ScraperService:
             reraise=True,
         )
         async def _inner():
-            nonlocal retry_count
+            nonlocal retry_count, browser_restarted
             result = await self._scrape_html(url, timeout)
+
             if not result.success and result.error:
+                error_msg = result.error.lower()
+
+                # Check for browser crash - requires restart
+                if _is_browser_crash(result.error):
+                    retry_count += 1
+                    logger.error(
+                        "Browser crash detected, attempting restart",
+                        extra={"url": url[:60], "error": result.error[:100]},
+                    )
+                    restarted = await self._restart_crawler()
+                    if restarted:
+                        browser_restarted = True
+                        raise BrowserCrashError(result.error)
+                    else:
+                        # Restart failed, don't retry
+                        return result
+
                 # Retry on transient errors
                 if any(
-                        err in result.error.lower()
+                        err in error_msg
                         for err in ["timeout", "connection", "network", "temporary"]
                 ):
                     retry_count += 1
@@ -202,12 +310,13 @@ class ScraperService:
                         extra={"url": url[:60]},
                     )
                     raise RetryableError(result.error)
+
             result.retry_count = retry_count
             return result
 
         try:
             return await _inner()
-        except RetryableError as e:
+        except (RetryableError, BrowserCrashError) as e:
             return ScrapeResult(
                 success=False,
                 error=f"Failed after {settings.RETRY_MAX_ATTEMPTS} attempts: {e}",

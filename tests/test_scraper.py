@@ -225,3 +225,105 @@ class TestConcurrencyControl:
         # Verify semaphore is created with correct value
         from seo_scraper.config import settings
         assert service._semaphore._value == settings.MAX_CONCURRENT_BROWSERS
+
+
+class TestBrowserCrashDetection:
+    """Tests for browser crash detection."""
+
+    def test_browser_crash_patterns(self):
+        """Should detect browser crash error patterns."""
+        from seo_scraper.scraper import _is_browser_crash
+
+        # Should detect crash patterns
+        assert _is_browser_crash("Browser has been closed") is True
+        assert _is_browser_crash("Target closed unexpectedly") is True
+        assert _is_browser_crash("Connection refused to browser") is True
+        assert _is_browser_crash("Protocol error in playwright") is True
+        assert _is_browser_crash("Page crashed during navigation") is True
+        assert _is_browser_crash("playwright._impl._errors.Error") is True
+
+        # Should not trigger on normal errors
+        assert _is_browser_crash("Page not found (404)") is False
+        assert _is_browser_crash("Network timeout") is False
+        assert _is_browser_crash("DNS resolution failed") is False
+
+
+@pytest.mark.asyncio
+class TestBrowserCrashRecovery:
+    """Tests for browser crash recovery."""
+
+    async def test_restart_crawler_method(self):
+        """Should restart crawler successfully."""
+        with patch("seo_scraper.scraper.AsyncWebCrawler") as mock_crawler_class:
+            mock_crawler = MagicMock()
+            mock_crawler.start = AsyncMock()
+            mock_crawler.close = AsyncMock()
+            mock_crawler_class.return_value = mock_crawler
+
+            service = ScraperService()
+            service.crawler = mock_crawler  # Simulate existing crawler
+
+            restarted = await service._restart_crawler()
+
+            assert restarted is True
+            assert service._restart_count == 1
+            mock_crawler.close.assert_called_once()
+            mock_crawler.start.assert_called_once()
+
+    async def test_retry_after_browser_crash(self):
+        """Should restart browser and retry after crash."""
+        from seo_scraper.scraper import BrowserCrashError
+
+        service = ScraperService()
+        call_count = 0
+
+        async def mock_scrape_html(url, timeout):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # First call: browser crash
+                return ScrapeResult(
+                    success=False,
+                    error="Browser has been closed",
+                    content_type="html",
+                )
+            # Second call: success after restart
+            return ScrapeResult(
+                success=True,
+                markdown="# Success after restart",
+                content_type="html",
+            )
+
+        async def mock_restart():
+            return True
+
+        service._scrape_html = mock_scrape_html
+        service._restart_crawler = mock_restart
+
+        result = await service._scrape_html_with_retry("https://example.com", 30000)
+
+        assert result.success is True
+        assert "Success after restart" in result.markdown
+        assert call_count == 2
+
+    async def test_fail_if_restart_fails(self):
+        """Should fail gracefully if browser restart fails."""
+        service = ScraperService()
+
+        async def mock_scrape_html(url, timeout):
+            return ScrapeResult(
+                success=False,
+                error="Browser has been closed",
+                content_type="html",
+            )
+
+        async def mock_restart_fail():
+            return False
+
+        service._scrape_html = mock_scrape_html
+        service._restart_crawler = mock_restart_fail
+
+        result = await service._scrape_html_with_retry("https://example.com", 30000)
+
+        assert result.success is False
+        assert "Browser has been closed" in result.error
