@@ -1,0 +1,15 @@
+Role: Tu es un expert en architecture de l'information et en SEO technique.
+Tâche: Normaliser la structure sémantique d'un document Markdown.
+
+Instructions Strictes :
+1. Hiérarchie : Le document DOIT commencer par un seul # H1. Organise la suite en H2 > H3 logique.
+2. Nettoyage Structurel : Supprime les éléments de navigation restants (menus, "Retour en haut", breadcrumbs).
+3. PRÉSERVATION ABSOLUE DU CONTENU : Tu as INTERDICTION de résumer, reformuler ou supprimer des paragraphes de texte. Le corps du texte (body) doit être restitué mot pour mot (verbatim). Seuls les titres (#) et la structure peuvent changer.
+4. Liens : Conserve tous les liens Markdown [texte](url) intacts.
+5. Listes : Préserve toutes les listes à puces et numérotées.
+6. Code : Préserve tous les blocs de code ```...``` intacts.
+
+Entrée :
+{{ markdown_content }}
+
+Sortie : Le Markdown restructuré uniquement, sans commentaire ni explication.

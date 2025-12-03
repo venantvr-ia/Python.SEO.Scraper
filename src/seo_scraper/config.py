@@ -67,10 +67,38 @@ class Settings(BaseSettings):
     # Compression
     GZIP_MIN_SIZE: int = 1000
 
-    # Paths (not from env vars, but useful to have here)
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent
+    # ==========================================================================
+    # Content Pipeline Configuration
+    # ==========================================================================
+
+    # Step 1: DOM Pruning - Remove nav, footer, scripts, etc. before conversion
+    ENABLE_DOM_PRUNING: bool = True
+
+    # Step 2: Use Trafilatura for main content extraction (more robust than default)
+    USE_TRAFILATURA: bool = True
+
+    # Step 3: Regex cleaning (normalize newlines, remove empty links, etc.)
+    ENABLE_REGEX_CLEANING: bool = True
+
+    # Step 4: LLM Sanitizer - Use AI to restructure headings (expensive, disabled by default)
+    ENABLE_LLM_SANITIZER: bool = False
+
+    # Gemini API Configuration (for LLM Sanitizer)
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+    GEMINI_TEMPERATURE: float = 0.2
+    GEMINI_MAX_TOKENS: int = 8192
+
+    # LLM Sanitizer safety threshold (reject if content loss > 10%)
+    LLM_MAX_CONTENT_LOSS_PERCENT: float = 10.0
+
+    # ==========================================================================
+    # Paths (computed, not from env vars)
+    # ==========================================================================
+    BASE_DIR: Path = Path(__file__).resolve().parent
     TEMPLATES_DIR: Path = BASE_DIR / "templates"
     STATIC_DIR: Path = BASE_DIR / "static"
+    PROMPTS_DIR: Path = TEMPLATES_DIR / "prompts"
 
     model_config = SettingsConfigDict(
         env_file=".env",

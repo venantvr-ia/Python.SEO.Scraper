@@ -22,6 +22,11 @@ dependencies = [
     "python-multipart>=0.0.6",
     "tenacity>=8.2.0",
     "python-json-logger>=2.0.0",
+    # Pipeline dependencies
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.0.0",
+    "trafilatura>=1.12.0",
+    "jinja2>=3.1.0",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +42,9 @@ dev = [
 queue = [
     "redis>=7.1.0",
     "arq>=0.25.0",
+]
+llm = [
+    "google-generativeai>=0.8.0",
 ]
 
 [project.scripts]
@@ -55,7 +63,7 @@ packages = ["seo_scraper"]
 package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
-seo_scraper = ["py.typed", "templates/**/*.html", "static/**/*"]
+seo_scraper = ["py.typed", "templates/**/*.html", "templates/**/*.j2", "static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

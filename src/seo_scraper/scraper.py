@@ -19,6 +19,7 @@ from tenacity import (
 
 from .config import settings
 from .pdf_scraper import PDFScraper, compute_content_hash
+from .pipeline import content_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,10 @@ class ScrapeResult:
     pdf_author: str | None = None
     pdf_pages: int | None = None
     pdf_creation_date: str | None = None
+
+    # Pipeline metadata
+    pipeline_steps: list[str] = field(default_factory=list)
+    extracted_title: str | None = None
 
 
 class RetryableError(Exception):
@@ -266,11 +271,34 @@ class ScraperService:
                     http_status_code=getattr(crawl_result, "status_code", None),
                 )
 
-            # Extract and clean markdown
-            markdown_content = (
+            # Get raw HTML and Crawl4AI's markdown (as fallback)
+            raw_html = getattr(crawl_result, "html", "") or ""
+            crawl4ai_markdown = (
                 str(crawl_result.markdown) if crawl_result.markdown else ""
             )
-            markdown_content = self._clean_markdown(markdown_content)
+
+            # Extract metadata for title injection
+            metadata = getattr(crawl_result, "metadata", {}) or {}
+            page_title = metadata.get("title") if isinstance(metadata, dict) else None
+            og_title = metadata.get("og:title") if isinstance(metadata, dict) else None
+
+            # Process through content pipeline
+            pipeline_result = await content_pipeline.process(
+                html=raw_html,
+                url=url,
+                crawl4ai_markdown=crawl4ai_markdown,
+                page_title=page_title,
+                og_title=og_title,
+            )
+
+            markdown_content = pipeline_result.markdown
+            pipeline_steps = pipeline_result.steps_applied
+            extracted_title = pipeline_result.title
+
+            logger.debug(
+                "Pipeline completed",
+                extra={"steps": pipeline_steps, "title": extracted_title},
+            )
 
             # Determine if it's a SPA (JavaScript executed)
             js_executed = True  # Crawl4AI always uses a browser
@@ -303,6 +331,8 @@ class ScraperService:
                 images_count=images_count,
                 redirected_url=getattr(crawl_result, "redirected_url", None),
                 response_headers=getattr(crawl_result, "response_headers", None),
+                pipeline_steps=pipeline_steps,
+                extracted_title=extracted_title,
             )
 
             # SSL info if available
