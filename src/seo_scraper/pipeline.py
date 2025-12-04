@@ -637,6 +637,36 @@ class ContentPipeline:
         logger.debug("Regex cleaning completed")
         return content
 
+    def _clean_html_for_llm(self, html: str) -> str:
+        """
+        Clean HTML by removing non-content elements before sending to LLM.
+
+        Removes: script, style, svg, path, noscript, meta tags.
+        This ensures tokens sent to Gemini are useful content, not CSS/JS.
+        """
+        try:
+            soup = BeautifulSoup(html, "lxml")
+
+            # Tags that waste LLM tokens (no business content)
+            tags_to_remove = ["script", "style", "svg", "path", "noscript", "meta", "link"]
+            for tag_name in tags_to_remove:
+                for tag in soup.find_all(tag_name):
+                    tag.decompose()
+
+            # Also remove inline styles and data attributes (token-heavy, useless)
+            for element in soup.find_all(True):
+                if element.has_attr("style"):
+                    del element["style"]
+                # Remove data-* attributes
+                attrs_to_remove = [attr for attr in element.attrs if attr.startswith("data-")]
+                for attr in attrs_to_remove:
+                    del element[attr]
+
+            return str(soup)
+        except Exception as e:
+            logger.warning(f"HTML cleaning for LLM failed: {e}")
+            return html
+
     async def _step_llm_html_sanitize(self, html: str) -> str | None:
         """
         Step 0: Use LLM to extract business content from HTML.
@@ -651,7 +681,11 @@ class ContentPipeline:
             from .gemini_client import get_gemini_client
             from .jinja_env import render_prompt
 
-            # Truncate HTML if too large for context window
+            # Clean HTML first: remove script, style, svg, meta (waste tokens)
+            html = self._clean_html_for_llm(html)
+            logger.debug(f"HTML after cleaning for LLM: {len(html)} chars")
+
+            # Truncate if still too large for context window
             # Gemini 2.0 Flash has ~1M token context, but we limit to ~100k chars for cost
             max_html_size = 100_000
             if len(html) > max_html_size:
