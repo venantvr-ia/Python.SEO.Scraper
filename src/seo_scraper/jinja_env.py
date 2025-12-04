@@ -71,6 +71,13 @@ def render_prompt(template_name: str, **context) -> str:
     """
     Render a prompt template with the given context.
 
+    Uses a two-phase rendering to protect against Jinja2 syntax in scraped content:
+    1. Replace content variables with placeholders
+    2. Render the template with placeholders
+    3. Substitute placeholders with actual content (no Jinja2 interpretation)
+
+    This prevents Vue/Angular syntax like {{ value }} from being interpreted.
+
     Args:
         template_name: Name of the template file (e.g., "sanitizer.j2")
         **context: Variables to pass to the template
@@ -78,6 +85,29 @@ def render_prompt(template_name: str, **context) -> str:
     Returns:
         Rendered prompt string
     """
+    # Content variables that might contain Jinja2-like syntax
+    CONTENT_VARS = ["html_content", "markdown_content"]
+
+    # Extract content variables and replace with placeholders
+    content_map = {}
+    safe_context = {}
+
+    for key, value in context.items():
+        if key in CONTENT_VARS and isinstance(value, str):
+            # Create a unique placeholder
+            placeholder = f"__SAFE_CONTENT_{key.upper()}__"
+            content_map[placeholder] = value
+            safe_context[key] = placeholder
+        else:
+            safe_context[key] = value
+
+    # Render template with placeholders
     env = get_jinja_env()
     template = env.get_template(template_name)
-    return template.render(**context)
+    result = template.render(**safe_context)
+
+    # Substitute placeholders with actual content (no Jinja2 interpretation)
+    for placeholder, content in content_map.items():
+        result = result.replace(placeholder, content)
+
+    return result
