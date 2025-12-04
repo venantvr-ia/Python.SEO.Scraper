@@ -190,7 +190,7 @@
         <div class="space-y-8">
             <!-- Header -->
             <div class="flex items-center justify-between">
-                <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
+                <h1 class="text-xl font-bold text-gray-900">Dashboard</h1>
                 <a href="${API.exportCsv}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -212,7 +212,7 @@
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-500">Total Scrapes</p>
-                            <p class="text-2xl font-bold text-gray-900">${stats.total_scrapes || 0}</p>
+                            <p class="text-xl font-bold text-gray-900">${stats.total_scrapes || 0}</p>
                         </div>
                     </div>
                 </div>
@@ -227,7 +227,7 @@
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-500">Taux de succes</p>
-                            <p class="text-2xl font-bold text-gray-900">${stats.success_rate || 0}%</p>
+                            <p class="text-xl font-bold text-gray-900">${stats.success_rate || 0}%</p>
                         </div>
                     </div>
                 </div>
@@ -242,7 +242,7 @@
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-500">Temps moyen</p>
-                            <p class="text-2xl font-bold text-gray-900">${avgDuration}</p>
+                            <p class="text-xl font-bold text-gray-900">${avgDuration}</p>
                         </div>
                     </div>
                 </div>
@@ -257,7 +257,7 @@
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-500">Erreurs</p>
-                            <p class="text-2xl font-bold text-gray-900">${totalErrors}</p>
+                            <p class="text-xl font-bold text-gray-900">${totalErrors}</p>
                         </div>
                     </div>
                 </div>
@@ -266,7 +266,7 @@
             <!-- Stats par type -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Par type de contenu</h3>
+                    <h3 class="text-base font-semibold text-gray-900 mb-4">Par type de contenu</h3>
                     <div class="space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="text-gray-600">HTML/SPA</span>
@@ -280,7 +280,7 @@
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Par statut</h3>
+                    <h3 class="text-base font-semibold text-gray-900 mb-4">Par statut</h3>
                     <div class="space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="flex items-center">
@@ -307,7 +307,7 @@
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Volume de donnees</h3>
+                    <h3 class="text-base font-semibold text-gray-900 mb-4">Volume de donnees</h3>
                     <div class="space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="text-gray-600">Contenu total</span>
@@ -320,7 +320,7 @@
             <!-- Recent Scrapes -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">Derniers scrapes</h2>
+                    <h2 class="text-base font-semibold text-gray-900">Derniers scrapes</h2>
                     <a href="#" id="view-all-logs" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
                         Voir tout &rarr;
                     </a>
@@ -427,7 +427,7 @@
         <div class="space-y-6">
             <!-- Header -->
             <div class="flex items-center justify-between">
-                <h1 class="text-3xl font-bold text-gray-900">Historique des scrapes</h1>
+                <h1 class="text-xl font-bold text-gray-900">Historique des scrapes</h1>
                 <div class="flex items-center space-x-3">
                     <a href="${exportUrl}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -527,7 +527,7 @@
         if (log.content_type === 'pdf' && (log.pdf_title || log.pdf_author || log.pdf_pages)) {
             pdfHtml = `
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Metadonnees PDF</h2>
+                <h2 class="text-base font-semibold text-gray-900 mb-4">Metadonnees PDF</h2>
                 <dl class="space-y-3">
                     ${log.pdf_title ? `<div class="flex justify-between"><dt class="text-gray-500">Titre</dt><dd class="text-gray-900">${escapeHtml(log.pdf_title)}</dd></div>` : ''}
                     ${log.pdf_author ? `<div class="flex justify-between"><dt class="text-gray-500">Auteur</dt><dd class="text-gray-900">${escapeHtml(log.pdf_author)}</dd></div>` : ''}
@@ -543,7 +543,7 @@
         if (log.ssl_info) {
             sslHtml = `
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Certificat SSL</h2>
+                <h2 class="text-base font-semibold text-gray-900 mb-4">Certificat SSL</h2>
                 <dl class="space-y-3">
                     ${log.ssl_info.valid !== undefined ? `<div class="flex justify-between"><dt class="text-gray-500">Valide</dt><dd class="${log.ssl_info.valid ? 'text-green-600' : 'text-red-600'}">${log.ssl_info.valid ? 'Oui' : 'Non'}</dd></div>` : ''}
                     ${log.ssl_info.issuer ? `<div class="flex justify-between"><dt class="text-gray-500">Emetteur</dt><dd class="text-gray-900 text-sm">${escapeHtml(log.ssl_info.issuer)}</dd></div>` : ''}
@@ -559,7 +559,7 @@
             const headersText = Object.entries(log.response_headers).map(([k, v]) => `${k}: ${v}`).join('\n');
             headersHtml = `
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Headers de reponse</h2>
+                <h2 class="text-base font-semibold text-gray-900 mb-4">Headers de reponse</h2>
                 <div class="bg-gray-50 rounded-lg p-4 overflow-x-auto">
                     <pre class="text-xs text-gray-700 whitespace-pre-wrap">${escapeHtml(headersText)}</pre>
                 </div>
@@ -572,7 +572,7 @@
         if (log.redirects && log.redirects.length > 0) {
             redirectsHtml = `
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">Redirections</h2>
+                <h2 class="text-base font-semibold text-gray-900 mb-4">Redirections</h2>
                 <ul class="space-y-2">
                     ${log.redirects.map(r => `<li class="text-sm text-gray-600 break-all">${escapeHtml(r)}</li>`).join('')}
                 </ul>
@@ -586,7 +586,7 @@
             markdownHtml = `
             <div class="bg-white rounded-xl shadow-sm border border-gray-200">
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">Contenu Markdown</h2>
+                    <h2 class="text-base font-semibold text-gray-900">Contenu Markdown</h2>
                     <button id="copy-markdown" class="text-sm text-indigo-600 hover:text-indigo-800">Copier</button>
                 </div>
                 <div class="p-6">
@@ -601,21 +601,24 @@
         return `
         <div class="space-y-6">
             <!-- Header -->
-            <div class="flex items-center justify-between">
-                <div>
-                    <a href="#" id="back-to-logs" class="text-indigo-600 hover:text-indigo-800 text-sm mb-2 inline-block">
+            <div class="space-y-2">
+                <!-- Row 1: Back link + Re-scrape button -->
+                <div class="flex items-center justify-between">
+                    <a href="#" id="back-to-logs" class="text-indigo-600 hover:text-indigo-800 text-sm">
                         &larr; Retour a l'historique
                     </a>
-                    <h1 class="text-2xl font-bold text-gray-900 break-all">${escapeHtml(log.url)}</h1>
+                    <button id="rescrape-detail-btn" data-id="${escapeHtml(log.id)}"
+                            class="inline-flex items-center px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition">
+                        <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Re-scraper
+                    </button>
                 </div>
-                <button id="rescrape-detail-btn" data-id="${escapeHtml(log.id)}"
-                        class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                    </svg>
-                    Re-scraper
-                </button>
+                <!-- Row 2: URL title (compact treeview style) -->
+                <h1 class="text-sm font-medium text-gray-900 font-mono truncate py-1 px-2 bg-gray-50 rounded border border-gray-200"
+                    title="${escapeHtml(log.url)}">${escapeHtml(log.url)}</h1>
             </div>
 
             <!-- Status Banner -->
@@ -634,7 +637,7 @@
                 <div class="space-y-6">
                     <!-- General Info -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Informations generales</h2>
+                        <h2 class="text-base font-semibold text-gray-900 mb-4">Informations generales</h2>
                         <dl class="space-y-3">
                             <div class="flex justify-between">
                                 <dt class="text-gray-500">ID</dt>
@@ -665,7 +668,7 @@
 
                     <!-- Content Info -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                        <h2 class="text-lg font-semibold text-gray-900 mb-4">Contenu</h2>
+                        <h2 class="text-base font-semibold text-gray-900 mb-4">Contenu</h2>
                         <dl class="space-y-3">
                             <div class="flex justify-between">
                                 <dt class="text-gray-500">Taille</dt>
