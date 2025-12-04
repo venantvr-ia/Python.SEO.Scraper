@@ -60,3 +60,6 @@ site/
 *.temp
 .cache/
 /tests/samples/
+/src/seo_scraper/data/scraper.db
+/src/seo_scraper/data/scraper.db-shm
+/src/seo_scraper/data/scraper.db-wal
