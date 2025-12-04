@@ -43,7 +43,7 @@ def log_routes(application: FastAPI) -> None:
         if hasattr(route, "methods") and hasattr(route, "path"):
             methods = ", ".join(sorted(route.methods - {"HEAD", "OPTIONS"}))
             if methods:
-                description = route.description or route.name or ""
+                description = getattr(route, "description", None) or route.name or ""
                 # Get first line of docstring
                 if description:
                     description = description.split("\n")[0].strip()
