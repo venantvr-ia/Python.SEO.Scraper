@@ -247,3 +247,12 @@ if settings.DASHBOARD_ENABLED:
         logger.info("Dashboard enabled at /dashboard")
     except ImportError:
         logger.warning("Dashboard module not available")
+
+    # Admin panel (requires dashboard)
+    try:
+        from .admin import router as admin_router
+
+        app.include_router(admin_router)
+        logger.info("Admin panel enabled at /admin")
+    except ImportError:
+        logger.warning("Admin module not available")

@@ -13,7 +13,18 @@
         logs: '/dashboard/api/logs',
         log: (id) => `/dashboard/api/logs/${id}`,
         rescrape: (id) => `/dashboard/rescrape/${id}`,
-        exportCsv: '/dashboard/export/csv'
+        exportCsv: '/dashboard/export/csv',
+        // Admin endpoints
+        adminConfig: '/admin/api/config',
+        adminSystem: '/admin/api/system',
+        adminCaches: '/admin/api/caches',
+        adminClearCache: (name) => `/admin/api/cache/clear/${name}`,
+        adminClearAllCaches: '/admin/api/cache/clear-all',
+        adminCrawlerRestart: '/admin/api/crawler/restart',
+        adminCrawlerStop: '/admin/api/crawler/stop',
+        adminCrawlerStart: '/admin/api/crawler/start',
+        adminDatabaseVacuum: '/admin/api/database/vacuum',
+        adminDeleteOldLogs: '/admin/api/database/logs/old'
     };
 
     let currentPage = 'index';
@@ -710,6 +721,183 @@
     }
 
     // ==========================================================================
+    // Admin Render
+    // ==========================================================================
+    function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    function renderAdmin(config, system, caches) {
+        // Group config by category
+        const configByCategory = {};
+        config.config.forEach(item => {
+            if (!configByCategory[item.category]) {
+                configByCategory[item.category] = [];
+            }
+            configByCategory[item.category].push(item);
+        });
+
+        const configHtml = Object.entries(configByCategory).map(([category, items]) => `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-base font-semibold text-gray-900 mb-4">${escapeHtml(category)}</h3>
+                <dl class="space-y-3">
+                    ${items.map(item => `
+                        <div class="flex justify-between items-center">
+                            <dt class="text-gray-500 text-sm">${escapeHtml(item.key)}</dt>
+                            <dd class="text-gray-900 text-sm font-mono ${item.sensitive ? 'text-orange-600' : ''}">
+                                ${typeof item.value === 'boolean'
+                                    ? (item.value ? '<span class="text-green-600">true</span>' : '<span class="text-red-600">false</span>')
+                                    : escapeHtml(String(item.value))
+                                }
+                            </dd>
+                        </div>
+                    `).join('')}
+                </dl>
+            </div>
+        `).join('');
+
+        const cachesHtml = caches.map(cache => `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-medium text-gray-900">${escapeHtml(cache.name)}</h4>
+                        <p class="text-xs text-gray-500 mt-1 font-mono truncate max-w-xs" title="${escapeHtml(cache.path || '')}">${escapeHtml(cache.path || '-')}</p>
+                    </div>
+                    <span class="px-2 py-1 text-xs rounded-full ${cache.exists ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}">
+                        ${cache.exists ? formatBytes(cache.size_bytes) : 'Vide'}
+                    </span>
+                </div>
+                <div class="mt-3 flex justify-between items-center">
+                    <span class="text-xs text-gray-500">${cache.files_count} fichier(s)</span>
+                    ${cache.name === 'Audit Database'
+                        ? `<button class="clear-cache-btn text-xs text-red-600 hover:text-red-800" data-cache="database">Vider</button>`
+                        : cache.name === 'Crawl4AI Browser Cache'
+                            ? `<button class="clear-cache-btn text-xs text-red-600 hover:text-red-800" data-cache="crawl4ai">Vider</button>`
+                            : cache.name === 'Python Cache'
+                                ? `<button class="clear-cache-btn text-xs text-red-600 hover:text-red-800" data-cache="pycache">Vider</button>`
+                                : ''
+                    }
+                </div>
+            </div>
+        `).join('');
+
+        const uptimeHtml = system.uptime_seconds
+            ? `${Math.floor(system.uptime_seconds / 3600)}h ${Math.floor((system.uptime_seconds % 3600) / 60)}m`
+            : '-';
+
+        return `
+        <div class="space-y-8">
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+                <h1 class="text-xl font-bold text-gray-900">Administration</h1>
+                <div class="flex items-center space-x-2">
+                    <span class="px-3 py-1 text-sm rounded-full ${system.crawler_ready ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                        Crawler: ${system.crawler_ready ? 'Ready' : 'Stopped'}
+                    </span>
+                </div>
+            </div>
+
+            <!-- System Info -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 class="text-base font-semibold text-gray-900 mb-4">Systeme</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-500">Version</p>
+                        <p class="text-lg font-medium text-gray-900">v${escapeHtml(system.version)}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Python</p>
+                        <p class="text-lg font-medium text-gray-900">${escapeHtml(system.python_version)}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Base de donnees</p>
+                        <p class="text-lg font-medium text-gray-900">${formatBytes(system.database_size_bytes)}</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-500">Uptime</p>
+                        <p class="text-lg font-medium text-gray-900">${uptimeHtml}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 class="text-base font-semibold text-gray-900 mb-4">Actions</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button id="btn-crawler-restart" class="admin-action-btn px-4 py-3 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 transition">
+                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Restart Crawler
+                    </button>
+                    <button id="btn-crawler-stop" class="admin-action-btn px-4 py-3 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition">
+                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/>
+                        </svg>
+                        Stop Crawler
+                    </button>
+                    <button id="btn-db-vacuum" class="admin-action-btn px-4 py-3 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition">
+                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                        </svg>
+                        Vacuum DB
+                    </button>
+                    <button id="btn-clear-all-caches" class="admin-action-btn px-4 py-3 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition">
+                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Vider Caches
+                    </button>
+                </div>
+
+                <div class="mt-4 border-t pt-4">
+                    <label class="text-sm text-gray-600 block mb-2">Supprimer les logs plus vieux que :</label>
+                    <div class="flex items-center space-x-2">
+                        <select id="delete-logs-days" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="7">7 jours</option>
+                            <option value="14">14 jours</option>
+                            <option value="30" selected>30 jours</option>
+                            <option value="60">60 jours</option>
+                            <option value="90">90 jours</option>
+                        </select>
+                        <button id="btn-delete-old-logs" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm">
+                            Supprimer
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Caches -->
+            <div>
+                <h2 class="text-base font-semibold text-gray-900 mb-4">Caches</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${cachesHtml}
+                </div>
+            </div>
+
+            <!-- Configuration -->
+            <div>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-semibold text-gray-900">Configuration</h2>
+                    ${config.env_file_exists
+                        ? `<span class="text-xs text-green-600">.env charge</span>`
+                        : `<span class="text-xs text-yellow-600">.env non trouve</span>`
+                    }
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${configHtml}
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
+    // ==========================================================================
     // Page Loaders
     // ==========================================================================
     function loadIndex() {
@@ -765,6 +953,142 @@
                 loadLogs();
             })
             .always(hideLoading);
+    }
+
+    function loadAdmin() {
+        currentPage = 'admin';
+        $('#page-title').text('Admin | SEO Scraper');
+        showLoading();
+
+        $.when(
+            $.get(API.adminConfig),
+            $.get(API.adminSystem),
+            $.get(API.adminCaches)
+        )
+            .done(function(configRes, systemRes, cachesRes) {
+                const config = configRes[0] || configRes;
+                const system = systemRes[0] || systemRes;
+                const caches = cachesRes[0] || cachesRes;
+                $('#content').html(renderAdmin(config, system, caches));
+                bindAdminEvents();
+            })
+            .fail(function(err) {
+                console.error('Error loading admin:', err);
+                showNotification('Erreur lors du chargement admin', 'error');
+            })
+            .always(hideLoading);
+    }
+
+    function bindAdminEvents() {
+        // Restart crawler
+        $('#btn-crawler-restart').off('click').on('click', function() {
+            const $btn = $(this);
+            $btn.prop('disabled', true).addClass('opacity-50');
+            $.post(API.adminCrawlerRestart)
+                .done(function(res) {
+                    showNotification(res.message, 'success');
+                    setTimeout(loadAdmin, 1000);
+                })
+                .fail(function(err) {
+                    showNotification('Erreur: ' + (err.responseJSON?.detail || 'Echec'), 'error');
+                })
+                .always(function() {
+                    $btn.prop('disabled', false).removeClass('opacity-50');
+                });
+        });
+
+        // Stop crawler
+        $('#btn-crawler-stop').off('click').on('click', function() {
+            const $btn = $(this);
+            $btn.prop('disabled', true).addClass('opacity-50');
+            $.post(API.adminCrawlerStop)
+                .done(function(res) {
+                    showNotification(res.message, 'success');
+                    setTimeout(loadAdmin, 500);
+                })
+                .fail(function(err) {
+                    showNotification('Erreur: ' + (err.responseJSON?.detail || 'Echec'), 'error');
+                })
+                .always(function() {
+                    $btn.prop('disabled', false).removeClass('opacity-50');
+                });
+        });
+
+        // Vacuum database
+        $('#btn-db-vacuum').off('click').on('click', function() {
+            const $btn = $(this);
+            $btn.prop('disabled', true).addClass('opacity-50');
+            $.post(API.adminDatabaseVacuum)
+                .done(function(res) {
+                    showNotification(res.message, 'success');
+                    setTimeout(loadAdmin, 500);
+                })
+                .fail(function(err) {
+                    showNotification('Erreur: ' + (err.responseJSON?.detail || 'Echec'), 'error');
+                })
+                .always(function() {
+                    $btn.prop('disabled', false).removeClass('opacity-50');
+                });
+        });
+
+        // Clear all caches
+        $('#btn-clear-all-caches').off('click').on('click', function() {
+            if (!confirm('Vider tous les caches ?')) return;
+            const $btn = $(this);
+            $btn.prop('disabled', true).addClass('opacity-50');
+            $.post(API.adminClearAllCaches)
+                .done(function(res) {
+                    showNotification(res.message, 'success');
+                    setTimeout(loadAdmin, 500);
+                })
+                .fail(function(err) {
+                    showNotification('Erreur: ' + (err.responseJSON?.detail || 'Echec'), 'error');
+                })
+                .always(function() {
+                    $btn.prop('disabled', false).removeClass('opacity-50');
+                });
+        });
+
+        // Delete old logs
+        $('#btn-delete-old-logs').off('click').on('click', function() {
+            const days = $('#delete-logs-days').val();
+            if (!confirm(`Supprimer les logs de plus de ${days} jours ?`)) return;
+            const $btn = $(this);
+            $btn.prop('disabled', true).addClass('opacity-50');
+            $.ajax({
+                url: API.adminDeleteOldLogs + '?days=' + days,
+                method: 'DELETE'
+            })
+                .done(function(res) {
+                    showNotification(res.message, 'success');
+                    setTimeout(loadAdmin, 500);
+                })
+                .fail(function(err) {
+                    showNotification('Erreur: ' + (err.responseJSON?.detail || 'Echec'), 'error');
+                })
+                .always(function() {
+                    $btn.prop('disabled', false).removeClass('opacity-50');
+                });
+        });
+
+        // Clear individual cache
+        $('.clear-cache-btn').off('click').on('click', function() {
+            const cacheName = $(this).data('cache');
+            if (!confirm(`Vider le cache ${cacheName} ?`)) return;
+            const $btn = $(this);
+            $btn.prop('disabled', true).addClass('opacity-50');
+            $.post(API.adminClearCache(cacheName))
+                .done(function(res) {
+                    showNotification(res.message, 'success');
+                    setTimeout(loadAdmin, 500);
+                })
+                .fail(function(err) {
+                    showNotification('Erreur: ' + (err.responseJSON?.detail || 'Echec'), 'error');
+                })
+                .always(function() {
+                    $btn.prop('disabled', false).removeClass('opacity-50');
+                });
+        });
     }
 
     // ==========================================================================
@@ -865,7 +1189,9 @@
         const path = window.location.pathname;
         const match = path.match(/^\/dashboard\/logs\/([^/]+)$/);
 
-        if (match) {
+        if (path === '/admin/' || path === '/admin') {
+            loadAdmin();
+        } else if (match) {
             loadLogDetail(match[1]);
         } else if (path === '/dashboard/logs' || path === '/dashboard/logs/') {
             // Parse query params
@@ -895,6 +1221,12 @@
         window.history.pushState({}, '', '/dashboard/logs');
         currentFilters = { page: 1, per_page: 20, status: '', content_type: '', url_search: '', search: '' };
         loadLogs();
+    });
+
+    $(document).on('click', '#nav-admin', function(e) {
+        e.preventDefault();
+        window.history.pushState({}, '', '/admin/');
+        loadAdmin();
     });
 
     // Handle browser back/forward

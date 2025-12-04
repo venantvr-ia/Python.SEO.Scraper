@@ -132,3 +132,222 @@ input:focus, select:focus, button:focus {
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
     transform: translateY(-2px);
 }
+
+/* ==========================================================================
+   Enhanced Links & Buttons Styles
+   ========================================================================== */
+
+/* Primary action links - with underline animation */
+a.log-link,
+a[href*="dashboard"] {
+    position: relative;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+a.log-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #4f46e5, #6366f1);
+    transition: width 0.3s ease;
+    border-radius: 1px;
+}
+
+a.log-link:hover::after {
+    width: 100%;
+}
+
+/* Back link style */
+#back-to-logs {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background: #f3f4f6;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+#back-to-logs:hover {
+    background: #e5e7eb;
+    transform: translateX(-4px);
+}
+
+/* Primary buttons - gradient + shadow */
+.btn-primary,
+button[class*="bg-indigo"],
+a[class*="bg-indigo"] {
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.4);
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.btn-primary:hover,
+button[class*="bg-indigo"]:hover,
+a[class*="bg-indigo"]:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+    box-shadow: 0 6px 20px 0 rgba(79, 70, 229, 0.5);
+    transform: translateY(-2px);
+}
+
+.btn-primary:active,
+button[class*="bg-indigo"]:active,
+a[class*="bg-indigo"]:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px 0 rgba(79, 70, 229, 0.4);
+}
+
+/* Secondary/ghost buttons */
+.rescrape-btn,
+button[class*="text-gray"] {
+    position: relative;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    background: transparent;
+}
+
+.rescrape-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 0.375rem;
+    background: #f3f4f6;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: -1;
+}
+
+.rescrape-btn:hover::before {
+    opacity: 1;
+}
+
+.rescrape-btn:hover {
+    color: #4f46e5;
+}
+
+/* Page navigation links */
+.page-link {
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.page-link:hover {
+    background: #4f46e5 !important;
+    color: white !important;
+    border-color: #4f46e5 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+/* View all link arrow animation */
+#view-all-logs {
+    display: inline-flex;
+    align-items: center;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+#view-all-logs:hover {
+    transform: translateX(4px);
+}
+
+/* Copy button style */
+#copy-markdown {
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    background: #eef2ff;
+}
+
+#copy-markdown:hover {
+    background: #4f46e5;
+    color: white;
+}
+
+/* Export buttons special style */
+a[href*="export"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+a[href*="export"] svg {
+    transition: transform 0.2s ease;
+}
+
+a[href*="export"]:hover svg {
+    transform: translateY(2px);
+}
+
+/* Navigation links in navbar */
+nav a[href*="dashboard"],
+nav a[href*="docs"] {
+    position: relative;
+    overflow: hidden;
+}
+
+nav a[href*="dashboard"]::before,
+nav a[href*="docs"]::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.8);
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+nav a[href*="dashboard"]:hover::before,
+nav a[href*="docs"]:hover::before {
+    width: 80%;
+}
+
+/* Table row action links */
+td a.log-link {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    transition: all 0.15s ease;
+}
+
+td a.log-link:hover {
+    background: #eef2ff;
+}
+
+/* Form inputs enhanced */
+input[type="text"],
+select {
+    transition: all 0.2s ease;
+    border: 1px solid #d1d5db;
+}
+
+input[type="text"]:hover,
+select:hover {
+    border-color: #9ca3af;
+}
+
+input[type="text"]:focus,
+select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+/* Badges enhanced */
+span[class*="rounded-full"] {
+    transition: all 0.15s ease;
+    cursor: default;
+}
+
+span[class*="rounded-full"]:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
