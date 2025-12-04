@@ -2,6 +2,8 @@
 """
 Tests for the content processing pipeline.
 """
+from unittest.mock import patch
+
 import pytest
 
 from seo_scraper.pipeline import ContentPipeline, PipelineResult
@@ -206,6 +208,20 @@ class TestContentPipeline:
 @pytest.mark.asyncio
 class TestContentPipelineAsync:
     """Async tests for ContentPipeline."""
+
+    @pytest.fixture(autouse=True)
+    def disable_llm_sanitizer(self):
+        """Disable LLM sanitizer for these tests to test traditional extraction."""
+        with patch("seo_scraper.pipeline.settings") as mock_settings:
+            mock_settings.ENABLE_LLM_HTML_SANITIZER = False
+            mock_settings.ENABLE_LLM_STRUCTURE_SANITIZER = False
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.ENABLE_DOM_PRUNING = True
+            mock_settings.USE_TRAFILATURA = True
+            mock_settings.ENABLE_REGEX_CLEANING = True
+            mock_settings.INCLUDE_IMAGES = True
+            mock_settings.LLM_MAX_CONTENT_LOSS_PERCENT = 10.0
+            yield
 
     async def test_process_with_html(self):
         """Should process HTML through pipeline."""

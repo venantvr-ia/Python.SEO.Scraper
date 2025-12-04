@@ -88,19 +88,25 @@ class Settings(BaseSettings):
     # Step 3: Regex cleaning (normalize newlines, remove empty links, etc.)
     ENABLE_REGEX_CLEANING: bool = True
 
-    # Step 4: LLM Sanitizer - Use AI to restructure headings (expensive, disabled by default)
-    ENABLE_LLM_SANITIZER: bool = False
+    # Step 4: LLM HTML Sanitizer - Use AI to extract content from HTML (expensive)
+    # When enabled, this step runs FIRST and bypasses traditional extraction
+    ENABLE_LLM_HTML_SANITIZER: bool = False
+
+    # Step 5: LLM Structure Sanitizer - Use AI to fix heading hierarchy (optional)
+    # Only runs if LLM HTML Sanitizer is disabled or failed
+    ENABLE_LLM_STRUCTURE_SANITIZER: bool = False
 
     # Include images in output (set to False to strip all ![...](...) from markdown)
     INCLUDE_IMAGES: bool = True
 
-    # Gemini API Configuration (for LLM Sanitizer)
+    # Gemini API Configuration (for LLM steps)
+    # Aligned with Python.SEO.Gemini project settings
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.0-flash"
-    GEMINI_TEMPERATURE: float = 0.2
-    GEMINI_MAX_TOKENS: int = 8192
+    GEMINI_MODEL: str = "gemini-2.5-flash"  # Same as Python.SEO.Gemini
+    GEMINI_TEMPERATURE: float = 0.2  # Low temperature for extraction (deterministic)
+    GEMINI_MAX_TOKENS: int = 16384  # 16K output for sanitizer
 
-    # LLM Sanitizer safety threshold (reject if content loss > 10%)
+    # LLM Structure Sanitizer safety threshold (reject if content loss > 10%)
     LLM_MAX_CONTENT_LOSS_PERCENT: float = 10.0
 
     # ==========================================================================

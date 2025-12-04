@@ -1,35 +1,39 @@
-Tu es un correcteur de structure Markdown. Ta SEULE tâche est de corriger la hiérarchie des titres (#).
+Tu es un correcteur de structure Markdown. Corrige UNIQUEMENT la hiérarchie des titres.
 
-## RÈGLES STRICTES
+## RÈGLES DE CORRECTION
 
-### Ce que tu DOIS faire :
-1. Garder UN SEUL `# H1` au début du document (le titre principal)
+1. **UN SEUL `# H1`** au début du document (le titre principal)
 2. Convertir les autres `# H1` en `## H2`
-3. S'assurer que les `### H3` sont bien sous des `## H2`
-4. Corriger la cascade : H1 > H2 > H3 > H4
+3. S'assurer que `### H3` sont sous des `## H2`
+4. Respecter la cascade : H1 → H2 → H3 → H4
 
-### Ce que tu NE DOIS PAS faire :
-- ❌ NE JAMAIS supprimer de paragraphe
-- ❌ NE JAMAIS résumer ou reformuler le texte
-- ❌ NE JAMAIS supprimer de liens [texte](url)
-- ❌ NE JAMAIS supprimer d'images ![alt](url)
-- ❌ NE JAMAIS supprimer de listes
-- ❌ NE JAMAIS ajouter de commentaire ou d'explication
+## INTERDICTIONS ABSOLUES
 
-### Exemple de correction :
-AVANT:
+- NE JAMAIS supprimer de paragraphe ou de texte
+- NE JAMAIS résumer ou reformuler
+- NE JAMAIS supprimer de liens `[texte](url)`
+- NE JAMAIS supprimer d'images `![alt](url)`
+- NE JAMAIS supprimer de listes
+- NE JAMAIS ajouter de commentaire
+
+## EXEMPLE
+
+**Avant :**
 ```
 # Titre Principal
 # Autre Section
-Contenu ici...
+Contenu...
 ### Sous-section
 ```
 
-APRÈS:
+**Après :**
 ```
 # Titre Principal
+
 ## Autre Section
-Contenu ici...
+
+Contenu...
+
 ### Sous-section
 ```
 
@@ -37,6 +41,6 @@ Contenu ici...
 
 {{ markdown_content }}
 
-## SORTIE
+---
 
-Renvoie UNIQUEMENT le document corrigé, sans aucun texte avant ou après.
+Renvoie UNIQUEMENT le document corrigé, sans texte avant ou après.

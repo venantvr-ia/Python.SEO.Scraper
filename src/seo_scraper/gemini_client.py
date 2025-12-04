@@ -2,38 +2,25 @@
 """
 Gemini API client for LLM-based content processing.
 
-Provides async interface to Google's Generative AI API.
+Uses REST API directly (aligned with Python.SEO.Gemini project).
+No dependency on google-generativeai SDK.
 """
 import asyncio
 import logging
+
+import httpx
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
-# Lazy import to avoid errors when google-generativeai is not installed
-_genai = None
-
-
-def _get_genai():
-    """Lazy load google.generativeai module."""
-    global _genai
-    if _genai is None:
-        try:
-            import google.generativeai as genai
-
-            _genai = genai
-        except ImportError:
-            raise ImportError(
-                "google-generativeai is required for LLM features. "
-                "Install with: pip install 'seo-scraper[llm]'"
-            )
-    return _genai
+# Gemini API base URL
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
 class GeminiClient:
     """
-    Async client for Google Gemini API.
+    Async client for Google Gemini REST API.
 
     Provides methods for text generation with configurable parameters.
     """
@@ -59,68 +46,73 @@ class GeminiClient:
         self.temperature = temperature if temperature is not None else settings.GEMINI_TEMPERATURE
         self.max_tokens = max_tokens or settings.GEMINI_MAX_TOKENS
 
-        self._model = None
-        self._initialized = False
+    @property
+    def url(self) -> str:
+        """Get the API endpoint URL."""
+        return f"{GEMINI_BASE_URL}/{self.model_name}:generateContent"
 
-    def _ensure_initialized(self) -> None:
-        """Initialize the Gemini client if not already done."""
-        if self._initialized:
-            return
-
-        if not self.api_key:
-            raise ValueError(
-                "GEMINI_API_KEY is required. Set it in environment or .env file."
-            )
-
-        genai = _get_genai()
-        genai.configure(api_key=self.api_key)
-
-        self._model = genai.GenerativeModel(
-            model_name=self.model_name,
-            generation_config={
-                "temperature": self.temperature,
-                "max_output_tokens": self.max_tokens,
-            },
-        )
-        self._initialized = True
-        logger.info(f"Gemini client initialized with model: {self.model_name}")
-
-    async def generate(self, prompt: str, **kwargs) -> str:
+    async def generate(self, prompt: str, timeout: int = 120, **kwargs) -> str:
         """
         Generate text from a prompt.
 
         Args:
             prompt: The input prompt
+            timeout: Request timeout in seconds
             **kwargs: Additional generation parameters
 
         Returns:
             Generated text string
         """
-        self._ensure_initialized()
+        if not self.api_key:
+            raise ValueError(
+                "GEMINI_API_KEY is required. Set it in environment or .env file."
+            )
 
-        # Run in thread pool since the SDK is synchronous
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None, lambda: self._model.generate_content(prompt)
-        )
-
-        if not response.candidates:
-            logger.warning("Gemini returned no candidates")
-            return ""
-
-        text = response.text
-        logger.debug(
-            f"Gemini generation complete",
-            extra={
-                "prompt_length": len(prompt),
-                "response_length": len(text),
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": self.temperature,
+                "maxOutputTokens": self.max_tokens,
             },
-        )
+        }
 
-        return text
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                f"{self.url}?key={self.api_key}",
+                headers={"Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+
+            data = response.json()
+            candidates = data.get("candidates", [])
+
+            if not candidates:
+                logger.warning("Gemini returned no candidates")
+                return ""
+
+            parts = candidates[0].get("content", {}).get("parts", [])
+            text = parts[0].get("text", "") if parts else ""
+
+            # Log usage metadata if available
+            usage = data.get("usageMetadata", {})
+            tokens_in = usage.get("promptTokenCount", 0)
+            tokens_out = usage.get("candidatesTokenCount", 0)
+
+            logger.debug(
+                "Gemini generation complete",
+                extra={
+                    "prompt_length": len(prompt),
+                    "response_length": len(text),
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                },
+            )
+
+            return text
 
     async def generate_with_retry(
-            self, prompt: str, max_retries: int = 2, **kwargs
+            self, prompt: str, max_retries: int = 2, timeout: int = 120, **kwargs
     ) -> str:
         """
         Generate text with retry on failure.
@@ -128,6 +120,7 @@ class GeminiClient:
         Args:
             prompt: The input prompt
             max_retries: Maximum retry attempts
+            timeout: Request timeout in seconds
             **kwargs: Additional generation parameters
 
         Returns:
@@ -137,7 +130,24 @@ class GeminiClient:
 
         for attempt in range(max_retries + 1):
             try:
-                return await self.generate(prompt, **kwargs)
+                return await self.generate(prompt, timeout=timeout, **kwargs)
+            except httpx.HTTPStatusError as e:
+                last_error = e
+                if e.response.status_code == 429:
+                    # Rate limited - wait longer
+                    wait_time = 2 ** (attempt + 1)
+                    logger.warning(
+                        f"Gemini rate limited (attempt {attempt + 1}/{max_retries + 1}), "
+                        f"retrying in {wait_time}s"
+                    )
+                    await asyncio.sleep(wait_time)
+                elif attempt < max_retries:
+                    wait_time = 2 ** attempt
+                    logger.warning(
+                        f"Gemini request failed (attempt {attempt + 1}/{max_retries + 1}), "
+                        f"retrying in {wait_time}s: {e}"
+                    )
+                    await asyncio.sleep(wait_time)
             except Exception as e:
                 last_error = e
                 if attempt < max_retries:
