@@ -63,3 +63,4 @@ site/
 /src/seo_scraper/data/scraper.db
 /src/seo_scraper/data/scraper.db-shm
 /src/seo_scraper/data/scraper.db-wal
+/data/scraper.db

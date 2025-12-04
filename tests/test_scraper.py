@@ -272,7 +272,6 @@ class TestBrowserCrashRecovery:
 
     async def test_retry_after_browser_crash(self):
         """Should restart browser and retry after crash."""
-        from seo_scraper.scraper import BrowserCrashError
 
         service = ScraperService()
         call_count = 0
