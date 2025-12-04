@@ -431,6 +431,15 @@ class Database:
             columns = [desc[0] for desc in cursor.description]
             stats = dict(zip(columns, row, strict=True))
 
+        # Handle NULL values from empty database (SUM returns NULL, not 0)
+        int_fields = [
+            "total_scrapes", "success_count", "error_count", "timeout_count",
+            "total_content_length", "pdf_count", "html_count", "spa_count"
+        ]
+        for field in int_fields:
+            if stats.get(field) is None:
+                stats[field] = 0
+
         # Last 7 days statistics
         seven_days_ago = datetime.now() - timedelta(days=7)
         query_recent = """
@@ -500,6 +509,61 @@ class Database:
             logger.info(f"Cleanup: {deleted} logs deleted")
 
         return deleted
+
+    async def delete_old_logs(self, days: int = 30) -> int:
+        """
+        Delete logs older than specified days.
+
+        Args:
+            days: Number of days to keep
+
+        Returns:
+            Number of deleted logs
+        """
+        if not self._db:
+            raise RuntimeError("Database not initialized")
+
+        cutoff_date = datetime.now() - timedelta(days=days)
+
+        cursor = await self._db.execute(
+            "DELETE FROM scrape_logs WHERE timestamp < ?", (cutoff_date.isoformat(),)
+        )
+        await self._db.commit()
+
+        deleted = cursor.rowcount
+        logger.info(f"Deleted {deleted} logs older than {days} days")
+        return deleted
+
+    async def clear_all_logs(self) -> int:
+        """
+        Delete all logs from the database.
+
+        Returns:
+            Number of deleted logs
+        """
+        if not self._db:
+            raise RuntimeError("Database not initialized")
+
+        # Get count first
+        async with self._db.execute("SELECT COUNT(*) FROM scrape_logs") as cursor:
+            count = (await cursor.fetchone())[0]
+
+        # Delete all
+        await self._db.execute("DELETE FROM scrape_logs")
+        await self._db.commit()
+
+        logger.info(f"Cleared all logs: {count} deleted")
+        return count
+
+    async def vacuum(self) -> None:
+        """
+        Vacuum the database to reclaim space and optimize.
+        """
+        if not self._db:
+            raise RuntimeError("Database not initialized")
+
+        await self._db.execute("VACUUM")
+        logger.info("Database vacuumed")
 
     @staticmethod
     def _row_to_dict(row: dict[str, Any]) -> dict[str, Any]:
