@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Literal
 
+import httpx
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
 from tenacity import (
     retry,
@@ -182,6 +183,29 @@ class ScraperService:
         """Check if crawler is ready."""
         return self.crawler is not None
 
+    async def _detect_content_type(self, url: str, timeout: int) -> str | None:
+        """
+        Detect content type via HTTP HEAD request.
+
+        Returns:
+            Content-Type header value or None if request fails.
+        """
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(timeout / 1000, connect=5.0),
+                follow_redirects=True,
+            ) as client:
+                response = await client.head(url)
+                content_type = response.headers.get("content-type", "")
+                logger.debug(
+                    f"HEAD request Content-Type: {content_type}",
+                    extra={"url": url[:60]},
+                )
+                return content_type.lower()
+        except Exception as e:
+            logger.debug(f"HEAD request failed, will use fallback detection: {e}")
+            return None
+
     async def scrape(
             self,
             url: str,
@@ -191,6 +215,7 @@ class ScraperService:
         Scrape a URL and return content as Markdown with metadata.
 
         Uses semaphore for concurrency control and retry with exponential backoff.
+        PDF detection via Content-Type header (HEAD request) with URL extension fallback.
 
         Args:
             url: URL to scrape
@@ -201,10 +226,20 @@ class ScraperService:
         """
         start_time = time.time()
 
+        # Detect PDF via HEAD request first (more reliable than extension)
+        is_pdf = False
+        content_type = await self._detect_content_type(url, timeout)
+        if content_type and "application/pdf" in content_type:
+            is_pdf = True
+            logger.info(f"PDF detected via Content-Type header", extra={"url": url[:60]})
+        elif self._pdf_scraper.is_pdf_url(url):
+            # Fallback to extension-based detection
+            is_pdf = True
+            logger.info(f"PDF detected via URL extension", extra={"url": url[:60]})
+
         # Acquire semaphore for concurrency control
         async with self._semaphore:
-            # Detect if it's a PDF by extension
-            if self._pdf_scraper.is_pdf_url(url):
+            if is_pdf:
                 result = await self._scrape_pdf_with_retry(url, timeout)
             else:
                 result = await self._scrape_html_with_retry(url, timeout)
