@@ -86,7 +86,7 @@ run-dev:
 	@echo "Lancement du service (développement avec reload)..."
 	@echo "URL: http://$(HOST):$(PORT)"
 	@echo "Docs: http://$(HOST):$(PORT)/docs"
-	HOST=$(HOST) PORT=$(PORT) $(BIN)/uvicorn seo_scraper.api:app --host $(HOST) --port $(PORT) --reload
+	$(BIN)/uvicorn seo_scraper.api:app --host $(HOST) --port $(PORT) --reload
 
 # =============================================================================
 # TESTS
@@ -162,7 +162,7 @@ check:
 	@curl -s http://localhost:$(PORT)/health > /dev/null 2>&1 && echo "✓ Service OK" || (echo "✗ Service non accessible" && exit 1)
 
 status:
-	@curl -s http://localhost:$(PORT)/health | python3 -m json.tool || echo "Service non accessible"
+	@curl -s http://localhost:$(PORT)/health | $(BIN)/python -m json.tool || echo "Service non accessible"
 
 # =============================================================================
 # DOCKER
