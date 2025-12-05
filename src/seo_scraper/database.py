@@ -499,6 +499,14 @@ class Database:
         Uses rowid for reliable ordering since SQLite timestamps have only
         second precision and UUID ordering is unpredictable.
 
+        Note on rowid stability:
+            rowid values may change after VACUUM if the table is rebuilt.
+            This is acceptable because:
+            1. VACUUM is a manual admin action (not automatic)
+            2. Cursor pagination is for short-lived UI sessions
+            3. Users don't paginate during database maintenance
+            If stronger guarantees are needed, consider timestamp+id composite cursors.
+
         Args:
             cursor: Base64-encoded cursor (rowid) from previous call
             limit: Maximum number of results
@@ -729,10 +737,18 @@ class Database:
     async def vacuum(self) -> None:
         """
         Vacuum the database to reclaim space and optimize.
+
+        Warning:
+            VACUUM may invalidate active cursor-based pagination sessions
+            as rowid values can change when the database is rebuilt.
+            Run during maintenance windows when users are not actively browsing.
         """
         if not self._db:
             raise RuntimeError("Database not initialized")
 
+        logger.warning(
+            "Running VACUUM - this may invalidate active cursor pagination sessions"
+        )
         await self._db.execute("VACUUM")
         logger.info("Database vacuumed")
 

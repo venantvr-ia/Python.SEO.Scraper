@@ -10,7 +10,12 @@ Implements a chain of responsibility pattern with configurable steps:
 4. Title Injection - Ensure document has a proper H1 heading
 5. Regex Cleaning - Normalize whitespace, remove empty elements
 6. LLM Structure Sanitizer - AI-powered heading normalization (optional)
+
+Performance Note:
+    CPU-bound operations (BeautifulSoup, Trafilatura) are offloaded to a thread pool
+    via asyncio.to_thread() to avoid blocking the FastAPI event loop.
 """
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -152,19 +157,24 @@ class ContentPipeline:
                 logger.info(f"LLM HTML sanitizer extracted {len(llm_markdown)} chars")
 
         # Step 1: Scientific Pre-Processing (for academic sites) - skip if LLM extracted
+        # CPU-bound: offload to thread pool
         if not llm_extracted and self._is_scientific_site(url):
-            current_html, scientific_content = self._step_scientific_preprocess(current_html)
+            current_html, scientific_content = await asyncio.to_thread(
+                self._step_scientific_preprocess, current_html
+            )
             result.steps_applied.append("scientific_preprocess")
 
         # Step 2: DOM Pruning - skip if LLM extracted
+        # CPU-bound: offload to thread pool
         if not llm_extracted and settings.ENABLE_DOM_PRUNING:
-            current_html = self._step_pruning(current_html)
+            current_html = await asyncio.to_thread(self._step_pruning, current_html)
             result.steps_applied.append("dom_pruning")
 
         # Step 3: Content Extraction (Trafilatura or Crawl4AI) - skip if LLM extracted
+        # CPU-bound: offload to thread pool
         crawl4ai_len = len(crawl4ai_markdown or "")
         if not llm_extracted and settings.USE_TRAFILATURA:
-            extracted = self._step_trafilatura(current_html)
+            extracted = await asyncio.to_thread(self._step_trafilatura, current_html)
             if extracted:
                 # Quality check: if trafilatura extracts < 30% of crawl4ai content,
                 # it's likely being too aggressive (e.g., on marketing pages)
@@ -682,7 +692,8 @@ class ContentPipeline:
             from .jinja_env import render_prompt
 
             # Clean HTML first: remove script, style, svg, meta (waste tokens)
-            html = self._clean_html_for_llm(html)
+            # CPU-bound: offload to thread pool
+            html = await asyncio.to_thread(self._clean_html_for_llm, html)
             logger.debug(f"HTML after cleaning for LLM: {len(html)} chars")
 
             # Truncate if still too large for context window

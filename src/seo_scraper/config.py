@@ -2,10 +2,20 @@
 """
 Scraping service configuration using Pydantic BaseSettings.
 """
+import logging
+import os
+import secrets
+import warnings
 from pathlib import Path
 from typing import List, Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+# Insecure default values that should never be used in production
+_INSECURE_SESSION_KEY = "change-me-in-production"
 
 
 class Settings(BaseSettings):
@@ -73,7 +83,7 @@ class Settings(BaseSettings):
 
     # Session expiry (30 days by default = "longtemps")
     SESSION_EXPIRY_DAYS: int = 30
-    SESSION_SECRET_KEY: str = "change-me-in-production"
+    SESSION_SECRET_KEY: str = _INSECURE_SESSION_KEY
 
     # Logs retention
     MAX_LOGS_RETENTION_DAYS: int = 30
@@ -140,6 +150,34 @@ class Settings(BaseSettings):
     TEMPLATES_DIR: Path = BASE_DIR / "templates"
     STATIC_DIR: Path = BASE_DIR / "static"
     PROMPTS_DIR: Path = TEMPLATES_DIR / "prompts"
+
+    @model_validator(mode="after")
+    def validate_security_settings(self) -> "Settings":
+        """
+        Validate security-sensitive settings.
+
+        - SESSION_SECRET_KEY must be changed from default in production
+        - Generates a warning in development if using insecure defaults
+        """
+        is_production = os.getenv("ENV", "").lower() in ("prod", "production")
+        auth_enabled = bool(self.USERS or self.ADMIN_PASSWORD)
+
+        if self.SESSION_SECRET_KEY == _INSECURE_SESSION_KEY:
+            if is_production and auth_enabled:
+                raise ValueError(
+                    "SECURITY ERROR: SESSION_SECRET_KEY must be set to a secure random value in production. "
+                    "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(32))\""
+                )
+            elif auth_enabled:
+                warnings.warn(
+                    "⚠️  SESSION_SECRET_KEY is using the default insecure value. "
+                    "Set a secure random value in production with: "
+                    "python -c \"import secrets; print(secrets.token_urlsafe(32))\"",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",
