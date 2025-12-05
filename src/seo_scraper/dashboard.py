@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from .auth import RequireSession
 from .config import settings

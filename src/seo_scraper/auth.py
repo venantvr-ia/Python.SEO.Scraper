@@ -70,6 +70,7 @@ def is_auth_enabled() -> bool:
     """Check if authentication is enabled."""
     return bool(settings.USERS or settings.ADMIN_PASSWORD)
 
+
 # =============================================================================
 # API Key Authentication (for /scrape endpoints)
 # =============================================================================
@@ -107,7 +108,6 @@ async def verify_api_key(api_key: Annotated[str | None, Depends(api_key_header)]
 
 # Dependency for protected API routes
 RequireApiKey = Annotated[bool, Depends(verify_api_key)]
-
 
 # =============================================================================
 # Session Authentication (for dashboard/admin UI)
@@ -163,7 +163,7 @@ def verify_session_token(token: str) -> SessionData | None:
 
 
 async def get_current_session(
-    session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
+        session_token: Annotated[str | None, Cookie(alias=SESSION_COOKIE_NAME)] = None,
 ) -> SessionData | None:
     """Get current session from cookie (returns None if not authenticated)."""
     if not session_token:
@@ -184,8 +184,8 @@ class AuthenticationRequired(HTTPException):
 
 
 async def require_session(
-    session: Annotated[SessionData | None, Depends(get_current_session)],
-    request: Request,
+        session: Annotated[SessionData | None, Depends(get_current_session)],
+        request: Request,
 ) -> SessionData:
     """
     Require a valid session for UI routes.
@@ -245,7 +245,7 @@ def authenticate_user(username: str, password: str) -> User | None:
     users = get_users()
     for user in users:
         if secrets.compare_digest(username, user.username) and secrets.compare_digest(
-            password, user.password
+                password, user.password
         ):
             return user
 

@@ -8,7 +8,6 @@ import asyncio
 import base64
 import json
 import logging
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from functools import partial
 from typing import Any
@@ -124,6 +123,7 @@ class AsyncSQLCipherConnection:
 
     async def connect(self):
         """Open the encrypted database connection."""
+
         def _connect():
             conn = sqlcipher.connect(self._db_path, check_same_thread=False)
             # Set the encryption key
@@ -144,6 +144,7 @@ class AsyncSQLCipherConnection:
 
     async def executescript(self, sql: str):
         """Execute a SQL script."""
+
         def _executescript():
             return self._conn.executescript(sql)
 
@@ -181,6 +182,7 @@ class AsyncCursorContextManager:
 
     async def _execute(self):
         """Execute the SQL and return an AsyncCursor."""
+
         def _do_execute():
             if self._parameters:
                 return self._conn._conn.execute(self._sql, self._parameters)
