@@ -105,6 +105,7 @@ class AsyncSQLCipherConnection:
     Async wrapper for SQLCipher connections.
 
     Provides an aiosqlite-compatible interface for encrypted databases.
+    Uses a single-threaded executor for thread-safety.
     """
 
     def __init__(self, db_path: str, key: str):
@@ -112,16 +113,19 @@ class AsyncSQLCipherConnection:
         self._key = key
         self._conn = None
         self._loop = None
+        # Use single-threaded executor for SQLCipher thread-safety
+        from concurrent.futures import ThreadPoolExecutor
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="sqlcipher")
 
     async def _run_in_executor(self, func, *args):
-        """Run a blocking function in the default executor."""
+        """Run a blocking function in the dedicated single-threaded executor."""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, partial(func, *args))
+        return await loop.run_in_executor(self._executor, partial(func, *args))
 
     async def connect(self):
         """Open the encrypted database connection."""
         def _connect():
-            conn = sqlcipher.connect(self._db_path)
+            conn = sqlcipher.connect(self._db_path, check_same_thread=False)
             # Set the encryption key
             conn.execute(f"PRAGMA key = '{self._key}'")
             return conn
@@ -150,10 +154,13 @@ class AsyncSQLCipherConnection:
         await self._run_in_executor(self._conn.commit)
 
     async def close(self):
-        """Close the database connection."""
+        """Close the database connection and executor."""
         if self._conn:
             await self._run_in_executor(self._conn.close)
             self._conn = None
+        if self._executor:
+            self._executor.shutdown(wait=True)
+            self._executor = None
 
 
 class AsyncCursorContextManager:
