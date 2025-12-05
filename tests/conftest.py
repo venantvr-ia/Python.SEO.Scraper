@@ -76,13 +76,15 @@ def event_loop():
 
 @pytest_asyncio.fixture
 async def test_db():
-    """Create a temporary test database."""
+    """Create a temporary test database (unencrypted for tests)."""
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         temp_path = Path(f.name)
 
     # Override config
     original_path = settings.DATABASE_PATH
+    original_key = settings.DATABASE_KEY
     settings.DATABASE_PATH = temp_path
+    settings.DATABASE_KEY = ""  # Disable encryption for tests
 
     # Create fresh database instance
     db = Database()
@@ -93,6 +95,7 @@ async def test_db():
     # Cleanup
     await db.close()
     settings.DATABASE_PATH = original_path
+    settings.DATABASE_KEY = original_key
     if temp_path.exists():
         temp_path.unlink()
 

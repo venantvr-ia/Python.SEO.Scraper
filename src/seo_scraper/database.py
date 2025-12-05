@@ -1,11 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 SQLite database module for scrape audit trail.
+
+Supports optional SQLCipher encryption when DATABASE_KEY is set.
 """
+import asyncio
 import base64
 import json
 import logging
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from functools import partial
 from typing import Any
 from uuid import uuid4
 
@@ -14,6 +19,15 @@ import aiosqlite
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+# Try to import sqlcipher3 for encrypted databases
+try:
+    import sqlcipher3 as sqlcipher
+
+    SQLCIPHER_AVAILABLE = True
+except ImportError:
+    SQLCIPHER_AVAILABLE = False
+    sqlcipher = None
 
 # Database schema
 SCHEMA = """
@@ -86,14 +100,139 @@ END;
 """
 
 
+class AsyncSQLCipherConnection:
+    """
+    Async wrapper for SQLCipher connections.
+
+    Provides an aiosqlite-compatible interface for encrypted databases.
+    """
+
+    def __init__(self, db_path: str, key: str):
+        self._db_path = db_path
+        self._key = key
+        self._conn = None
+        self._loop = None
+
+    async def _run_in_executor(self, func, *args):
+        """Run a blocking function in the default executor."""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, partial(func, *args))
+
+    async def connect(self):
+        """Open the encrypted database connection."""
+        def _connect():
+            conn = sqlcipher.connect(self._db_path)
+            # Set the encryption key
+            conn.execute(f"PRAGMA key = '{self._key}'")
+            return conn
+
+        self._conn = await self._run_in_executor(_connect)
+        self._loop = asyncio.get_event_loop()
+        return self
+
+    def execute(self, sql: str, parameters=None):
+        """
+        Execute a SQL statement.
+
+        Returns an AsyncCursorContextManager for use with 'async with'.
+        """
+        return AsyncCursorContextManager(self, sql, parameters)
+
+    async def executescript(self, sql: str):
+        """Execute a SQL script."""
+        def _executescript():
+            return self._conn.executescript(sql)
+
+        await self._run_in_executor(_executescript)
+
+    async def commit(self):
+        """Commit the current transaction."""
+        await self._run_in_executor(self._conn.commit)
+
+    async def close(self):
+        """Close the database connection."""
+        if self._conn:
+            await self._run_in_executor(self._conn.close)
+            self._conn = None
+
+
+class AsyncCursorContextManager:
+    """
+    Async context manager for SQLCipher cursor execution.
+
+    Supports both patterns:
+    - async with conn.execute(...) as cursor: ...
+    - cursor = await conn.execute(...)
+    """
+
+    def __init__(self, conn: AsyncSQLCipherConnection, sql: str, parameters=None):
+        self._conn = conn
+        self._sql = sql
+        self._parameters = parameters
+        self._cursor = None
+        self._async_cursor = None
+
+    async def _execute(self):
+        """Execute the SQL and return an AsyncCursor."""
+        def _do_execute():
+            if self._parameters:
+                return self._conn._conn.execute(self._sql, self._parameters)
+            return self._conn._conn.execute(self._sql)
+
+        self._cursor = await self._conn._run_in_executor(_do_execute)
+        self._async_cursor = AsyncCursor(self._cursor, self._conn._run_in_executor)
+        return self._async_cursor
+
+    async def __aenter__(self):
+        """Execute the SQL and return the cursor (for async with)."""
+        return await self._execute()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Clean up cursor."""
+        pass
+
+    def __await__(self):
+        """Allow direct await: cursor = await conn.execute(...)"""
+        return self._execute().__await__()
+
+
+class AsyncCursor:
+    """Async wrapper for SQLCipher cursor."""
+
+    def __init__(self, cursor, run_in_executor):
+        self._cursor = cursor
+        self._run_in_executor = run_in_executor
+
+    @property
+    def description(self):
+        return self._cursor.description
+
+    @property
+    def rowcount(self):
+        return self._cursor.rowcount
+
+    async def fetchone(self):
+        return await self._run_in_executor(self._cursor.fetchone)
+
+    async def fetchall(self):
+        return await self._run_in_executor(self._cursor.fetchall)
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+
 class Database:
-    """Async SQLite database manager."""
+    """Async SQLite database manager with optional SQLCipher encryption."""
 
     _instance: "Database | None" = None
 
     def __init__(self):
-        self._db: aiosqlite.Connection | None = None
+        self._db: aiosqlite.Connection | AsyncSQLCipherConnection | None = None
         self._initialized = False
+        self._encrypted = False
 
     @classmethod
     def get_instance(cls) -> "Database":
@@ -107,6 +246,11 @@ class Database:
         """Check if database is initialized."""
         return self._initialized
 
+    @property
+    def is_encrypted(self) -> bool:
+        """Check if database uses encryption."""
+        return self._encrypted
+
     async def initialize(self) -> None:
         """Initialize connection and create schema if needed."""
         if self._initialized:
@@ -115,24 +259,43 @@ class Database:
         # Create data directory if needed
         settings.DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Connecting to database: {settings.DATABASE_PATH}")
-        self._db = await aiosqlite.connect(settings.DATABASE_PATH)
+        db_path = str(settings.DATABASE_PATH)
 
-        # Enable WAL mode for better performance
-        await self._db.execute("PRAGMA journal_mode=WAL")
-        await self._db.execute("PRAGMA foreign_keys=ON")
+        # Check if encryption is requested
+        if settings.DATABASE_KEY:
+            if not SQLCIPHER_AVAILABLE:
+                raise RuntimeError(
+                    "DATABASE_KEY is set but sqlcipher3 is not installed. "
+                    "Install it with: pip install sqlcipher3-binary"
+                )
+
+            logger.info(f"Connecting to encrypted database: {settings.DATABASE_PATH}")
+            self._db = AsyncSQLCipherConnection(db_path, settings.DATABASE_KEY)
+            await self._db.connect()
+            self._encrypted = True
+
+            # Enable WAL mode for better performance
+            await self._db.execute("PRAGMA journal_mode=WAL")
+            await self._db.execute("PRAGMA foreign_keys=ON")
+        else:
+            logger.info(f"Connecting to database: {settings.DATABASE_PATH}")
+            self._db = await aiosqlite.connect(settings.DATABASE_PATH)
+
+            # Enable WAL mode for better performance
+            await self._db.execute("PRAGMA journal_mode=WAL")
+            await self._db.execute("PRAGMA foreign_keys=ON")
 
         # Create schema
         await self._db.executescript(SCHEMA)
         try:
             await self._db.executescript(FTS_SCHEMA)
-        except aiosqlite.OperationalError as e:
+        except (aiosqlite.OperationalError, Exception) as e:
             # FTS5 may not be available on some systems
             logger.warning(f"FTS5 not available: {e}")
 
         await self._db.commit()
         self._initialized = True
-        logger.info("Database initialized")
+        logger.info(f"Database initialized (encrypted: {self._encrypted})")
 
     async def close(self) -> None:
         """Close database connection."""
@@ -140,6 +303,7 @@ class Database:
             await self._db.close()
             self._db = None
             self._initialized = False
+            self._encrypted = False
             logger.info("Database connection closed")
 
     async def insert_log(self, log_data: dict[str, Any]) -> str:

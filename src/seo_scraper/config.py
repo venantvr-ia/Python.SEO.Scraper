@@ -45,8 +45,9 @@ class Settings(BaseSettings):
     # Optional CSS selector to wait for (e.g., ".content-loaded", "[data-loaded]")
     WAIT_FOR_SELECTOR: str = ""
 
-    # Database (SQLite)
+    # Database (SQLite/SQLCipher)
     DATABASE_PATH: Path = Path("data/scraper.db")
+    DATABASE_KEY: str = ""  # If set, encrypts the database with SQLCipher
 
     # Dashboard
     DASHBOARD_ENABLED: bool = True
