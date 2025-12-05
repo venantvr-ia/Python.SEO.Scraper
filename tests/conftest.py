@@ -12,14 +12,57 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 
 from seo_scraper.api import app
+from seo_scraper.auth import SESSION_COOKIE_NAME, create_session_token
 from seo_scraper.config import settings
 from seo_scraper.database import Database
 from seo_scraper.scraper import ScrapeResult, ScraperService
 
 
+class AuthenticatedTestClient(TestClient):
+    """Test client with API key authentication."""
+
+    def __init__(self, *args, api_key: str = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.api_key = api_key or settings.API_KEY
+
+    def request(self, method, url, **kwargs):
+        headers = kwargs.get("headers") or {}
+        if self.api_key:
+            headers["X-API-Key"] = self.api_key
+        kwargs["headers"] = headers
+        return super().request(method, url, **kwargs)
+
+
+class SessionTestClient(TestClient):
+    """Test client with session cookie authentication."""
+
+    def __init__(self, *args, username: str = "admin", **kwargs):
+        super().__init__(*args, **kwargs)
+        # Create a session token
+        self.session_token = create_session_token(username)
+
+    def request(self, method, url, **kwargs):
+        cookies = kwargs.get("cookies") or {}
+        cookies[SESSION_COOKIE_NAME] = self.session_token
+        kwargs["cookies"] = cookies
+        return super().request(method, url, **kwargs)
+
+
 @pytest.fixture
 def client():
-    """FastAPI test client (without starting the crawler)."""
+    """FastAPI test client with API key (for /scrape endpoints)."""
+    return AuthenticatedTestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def session_client():
+    """FastAPI test client with session cookie (for dashboard/admin)."""
+    return SessionTestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def unauthenticated_client():
+    """FastAPI test client without authentication."""
     return TestClient(app, raise_server_exceptions=False)
 
 

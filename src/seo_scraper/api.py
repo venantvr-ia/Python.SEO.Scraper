@@ -12,7 +12,10 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import HttpUrl
 
+from starlette.responses import RedirectResponse
+
 from . import __version__
+from .auth import AuthenticationRequired, RequireApiKey
 from .config import settings
 from .database import db
 from .logging_config import setup_logging
@@ -88,6 +91,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# Exception handler for authentication redirect
+@app.exception_handler(AuthenticationRequired)
+async def auth_required_handler(request, exc: AuthenticationRequired):
+    """Redirect to login page when authentication is required."""
+    return RedirectResponse(url=exc.redirect_url, status_code=302)
+
+
 # Middleware stack (order matters: last added = first executed)
 app.add_middleware(GZipMiddleware, minimum_size=settings.GZIP_MIN_SIZE)
 app.add_middleware(
@@ -116,7 +127,7 @@ async def health_check() -> HealthResponse:
 
 
 @app.post("/scrape", response_model=ScrapeResponse)
-async def scrape_url(request: ScrapeRequest) -> ScrapeResponse:
+async def scrape_url(request: ScrapeRequest, _auth: RequireApiKey) -> ScrapeResponse:
     """
     Scrape a URL and return the content as Markdown.
 
@@ -207,7 +218,7 @@ async def scrape_url(request: ScrapeRequest) -> ScrapeResponse:
 
 @app.post("/scrape/batch")
 async def scrape_batch(
-        urls: list[HttpUrl], ignore_body_visibility: bool = True
+        urls: list[HttpUrl], _auth: RequireApiKey, ignore_body_visibility: bool = True
 ) -> list[ScrapeResponse]:
     """
     Scrape multiple URLs in parallel.
@@ -237,6 +248,11 @@ async def scrape_batch(
         for i, r in enumerate(results)
     ]
 
+
+# Auth router (login/logout)
+from .auth_router import router as auth_router
+
+app.include_router(auth_router)
 
 # Conditional dashboard import
 if settings.DASHBOARD_ENABLED:

@@ -51,6 +51,21 @@ class Settings(BaseSettings):
     # Dashboard
     DASHBOARD_ENABLED: bool = True
 
+    # ==========================================================================
+    # Authentication
+    # ==========================================================================
+
+    # API Key for programmatic access (scrape endpoints)
+    API_KEY: str = ""
+
+    # Admin credentials for dashboard/admin UI
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = ""
+
+    # Session expiry (30 days by default = "longtemps")
+    SESSION_EXPIRY_DAYS: int = 30
+    SESSION_SECRET_KEY: str = "change-me-in-production"
+
     # Logs retention
     MAX_LOGS_RETENTION_DAYS: int = 30
 

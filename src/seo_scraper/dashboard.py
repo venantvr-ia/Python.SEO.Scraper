@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 
+from .auth import RequireSession
 from .config import settings
 from .database import db
 from .db_models import PaginatedLogs, ScrapeLog, ScrapeLogSummary, ScrapeStats
@@ -30,31 +31,31 @@ DASHBOARD_HTML = Path(settings.TEMPLATES_DIR) / "base.html"
 
 
 # =============================================================================
-# HTML Routes - Serve the SPA
+# HTML Routes - Serve the SPA (require session)
 # =============================================================================
 @router.get("/", response_class=FileResponse)
-async def dashboard_index():
+async def dashboard_index(session: RequireSession):
     """Dashboard home page (SPA)."""
     return FileResponse(DASHBOARD_HTML, media_type="text/html")
 
 
 @router.get("/logs", response_class=FileResponse)
-async def dashboard_logs_page():
+async def dashboard_logs_page(session: RequireSession):
     """Logs page (SPA)."""
     return FileResponse(DASHBOARD_HTML, media_type="text/html")
 
 
 @router.get("/logs/{log_id}", response_class=FileResponse)
-async def dashboard_log_detail_page(log_id: str):  # noqa: ARG001 - log_id used by client-side routing
+async def dashboard_log_detail_page(log_id: str, session: RequireSession):  # noqa: ARG001 - log_id used by client-side routing
     """Log detail page (SPA)."""
     return FileResponse(DASHBOARD_HTML, media_type="text/html")
 
 
 # =============================================================================
-# JSON API Endpoints
+# JSON API Endpoints (require session)
 # =============================================================================
 @router.get("/api/stats")
-async def dashboard_api_stats() -> ScrapeStats:
+async def dashboard_api_stats(session: RequireSession) -> ScrapeStats:
     """JSON API for statistics."""
     stats = await db.get_stats()
     return ScrapeStats(**stats)
@@ -62,6 +63,7 @@ async def dashboard_api_stats() -> ScrapeStats:
 
 @router.get("/api/logs")
 async def dashboard_api_logs(
+        session: RequireSession,
         page: int = Query(1, ge=1),
         per_page: int = Query(20, ge=10, le=100),
         status: Literal["success", "error", "timeout"] | None = None,
@@ -93,7 +95,7 @@ async def dashboard_api_logs(
 
 
 @router.get("/api/logs/{log_id}")
-async def dashboard_api_log_detail(log_id: str) -> ScrapeLog:
+async def dashboard_api_log_detail(log_id: str, session: RequireSession) -> ScrapeLog:
     """JSON API for log detail."""
     log = await db.get_log(log_id)
 
@@ -104,10 +106,10 @@ async def dashboard_api_log_detail(log_id: str) -> ScrapeLog:
 
 
 # =============================================================================
-# Actions
+# Actions (require session)
 # =============================================================================
 @router.post("/rescrape/{log_id}")
-async def dashboard_rescrape(log_id: str):
+async def dashboard_rescrape(log_id: str, session: RequireSession):
     """Re-scrape a URL from an existing log."""
     log = await db.get_log(log_id)
 
@@ -127,10 +129,11 @@ async def dashboard_rescrape(log_id: str):
 
 
 # =============================================================================
-# Cursor Pagination API
+# Cursor Pagination API (require session)
 # =============================================================================
 @router.get("/api/logs/cursor")
 async def dashboard_api_logs_cursor(
+        session: RequireSession,
         cursor: str | None = None,
         limit: int = Query(50, ge=10, le=100),
         status: Literal["success", "error", "timeout"] | None = None,
@@ -157,10 +160,11 @@ async def dashboard_api_logs_cursor(
 
 
 # =============================================================================
-# Export
+# Export (require session)
 # =============================================================================
 @router.get("/export/json")
 async def dashboard_export_json(
+        session: RequireSession,
         status: Literal["success", "error", "timeout"] | None = None,
         content_type: Literal["html", "pdf", "spa"] | None = None,
         url_search: str | None = None,
@@ -209,6 +213,7 @@ async def dashboard_export_json(
 
 @router.get("/export/csv")
 async def dashboard_export_csv(
+        session: RequireSession,
         status: Literal["success", "error", "timeout"] | None = None,
         content_type: Literal["html", "pdf", "spa"] | None = None,
         url_search: str | None = None,

@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from .auth import RequireSession
 from .config import settings
 from .database import db
 
@@ -69,19 +70,19 @@ class SystemInfo(BaseModel):
 
 
 # =============================================================================
-# HTML Routes
+# HTML Routes (require session)
 # =============================================================================
 @router.get("/", response_class=FileResponse)
-async def admin_index():
+async def admin_index(session: RequireSession):
     """Admin panel home page."""
     return FileResponse(ADMIN_HTML, media_type="text/html")
 
 
 # =============================================================================
-# API Endpoints - Configuration
+# API Endpoints - Configuration (require session)
 # =============================================================================
 @router.get("/api/config")
-async def get_config() -> ConfigResponse:
+async def get_config(session: RequireSession) -> ConfigResponse:
     """Get current configuration (sensitive values masked)."""
     config_items = []
 
@@ -137,7 +138,7 @@ async def get_config() -> ConfigResponse:
 
 
 @router.get("/api/system")
-async def get_system_info() -> SystemInfo:
+async def get_system_info(session: RequireSession) -> SystemInfo:
     """Get system information."""
     import sys
 
@@ -163,7 +164,7 @@ async def get_system_info() -> SystemInfo:
 
 
 # =============================================================================
-# API Endpoints - Cache Management
+# API Endpoints - Cache Management (require session)
 # =============================================================================
 def _get_dir_size(path: Path) -> tuple[int, int]:
     """Get directory size and file count."""
@@ -179,7 +180,7 @@ def _get_dir_size(path: Path) -> tuple[int, int]:
 
 
 @router.get("/api/caches")
-async def get_caches() -> list[CacheInfo]:
+async def get_caches(session: RequireSession) -> list[CacheInfo]:
     """Get information about all caches."""
     caches = []
 
@@ -231,7 +232,7 @@ async def get_caches() -> list[CacheInfo]:
 
 
 @router.post("/api/cache/clear/{cache_name}")
-async def clear_cache(cache_name: str) -> ActionResult:
+async def clear_cache(cache_name: str, session: RequireSession) -> ActionResult:
     """Clear a specific cache."""
     cache_paths = {
         "crawl4ai": Path.home() / ".crawl4ai",
@@ -287,7 +288,7 @@ async def clear_cache(cache_name: str) -> ActionResult:
 
 
 @router.post("/api/cache/clear-all")
-async def clear_all_caches() -> ActionResult:
+async def clear_all_caches(session: RequireSession) -> ActionResult:
     """Clear all clearable caches (excludes Playwright browsers)."""
     results = []
     total_freed = 0
@@ -325,10 +326,10 @@ async def clear_all_caches() -> ActionResult:
 
 
 # =============================================================================
-# API Endpoints - Crawler Actions
+# API Endpoints - Crawler Actions (require session)
 # =============================================================================
 @router.post("/api/crawler/restart")
-async def restart_crawler() -> ActionResult:
+async def restart_crawler(session: RequireSession) -> ActionResult:
     """Restart the crawler."""
     from .scraper import scraper_service
 
@@ -345,7 +346,7 @@ async def restart_crawler() -> ActionResult:
 
 
 @router.post("/api/crawler/stop")
-async def stop_crawler() -> ActionResult:
+async def stop_crawler(session: RequireSession) -> ActionResult:
     """Stop the crawler."""
     from .scraper import scraper_service
 
@@ -361,7 +362,7 @@ async def stop_crawler() -> ActionResult:
 
 
 @router.post("/api/crawler/start")
-async def start_crawler() -> ActionResult:
+async def start_crawler(session: RequireSession) -> ActionResult:
     """Start the crawler."""
     from .scraper import scraper_service
 
@@ -377,10 +378,10 @@ async def start_crawler() -> ActionResult:
 
 
 # =============================================================================
-# API Endpoints - Database Actions
+# API Endpoints - Database Actions (require session)
 # =============================================================================
 @router.post("/api/database/vacuum")
-async def vacuum_database() -> ActionResult:
+async def vacuum_database(session: RequireSession) -> ActionResult:
     """Vacuum the database to reclaim space."""
     try:
         size_before = Path(settings.DATABASE_PATH).stat().st_size
@@ -405,7 +406,7 @@ async def vacuum_database() -> ActionResult:
 
 
 @router.delete("/api/database/logs/old")
-async def delete_old_logs(days: int = 30) -> ActionResult:
+async def delete_old_logs(session: RequireSession, days: int = 30) -> ActionResult:
     """Delete logs older than specified days."""
     try:
         deleted = await db.delete_old_logs(days=days)
