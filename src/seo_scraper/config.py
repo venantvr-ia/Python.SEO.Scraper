@@ -125,9 +125,9 @@ class Settings(BaseSettings):
     # When enabled, this step runs FIRST and bypasses traditional extraction
     ENABLE_LLM_HTML_SANITIZER: bool = False
 
-    # Step 5: LLM Structure Sanitizer - Use AI to fix heading hierarchy (optional)
+    # Step 5: LLM Structure Sanitizer - Use AI to fix heading hierarchy
     # Only runs if LLM HTML Sanitizer is disabled or failed
-    ENABLE_LLM_STRUCTURE_SANITIZER: bool = False
+    ENABLE_LLM_STRUCTURE_SANITIZER: bool = True
 
     # Include images in output (set to False to strip all ![...](...) from markdown)
     INCLUDE_IMAGES: bool = True
