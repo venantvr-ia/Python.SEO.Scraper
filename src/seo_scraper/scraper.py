@@ -192,8 +192,8 @@ class ScraperService:
         """
         try:
             async with httpx.AsyncClient(
-                timeout=httpx.Timeout(timeout / 1000, connect=5.0),
-                follow_redirects=True,
+                    timeout=httpx.Timeout(timeout / 1000, connect=5.0),
+                    follow_redirects=True,
             ) as client:
                 response = await client.head(url)
                 content_type = response.headers.get("content-type", "")

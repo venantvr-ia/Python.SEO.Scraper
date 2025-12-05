@@ -5,6 +5,7 @@ Tests for the scraper module.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from seo_scraper.scraper import RetryableError, ScrapeResult, ScraperService
 
 

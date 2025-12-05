@@ -58,11 +58,11 @@ To get started with Python, install it from python.org."""
 
     @pytest.mark.asyncio
     async def test_llm_html_sanitize_extracts_content(
-        self, pipeline, sample_html, expected_markdown
+            self, pipeline, sample_html, expected_markdown
     ):
         """LLM HTML sanitizer should extract business content."""
         with patch.object(
-            pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
+                pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
         ) as mock_sanitize:
             mock_sanitize.return_value = expected_markdown
 
@@ -88,11 +88,11 @@ To get started with Python, install it from python.org."""
 
     @pytest.mark.asyncio
     async def test_llm_html_sanitize_bypasses_traditional_extraction(
-        self, pipeline, sample_html, expected_markdown
+            self, pipeline, sample_html, expected_markdown
     ):
         """When LLM succeeds, traditional extraction steps should be skipped."""
         with patch.object(
-            pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
+                pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
         ) as mock_sanitize:
             mock_sanitize.return_value = expected_markdown
 
@@ -127,7 +127,7 @@ To get started with Python, install it from python.org."""
     async def test_llm_html_sanitize_fallback_on_failure(self, pipeline, sample_html):
         """When LLM fails, traditional extraction should run."""
         with patch.object(
-            pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
+                pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
         ) as mock_sanitize:
             # LLM returns None (failure)
             mock_sanitize.return_value = None
@@ -157,7 +157,7 @@ To get started with Python, install it from python.org."""
     async def test_llm_html_sanitize_disabled_by_default(self, pipeline, sample_html):
         """LLM sanitizer should not run when disabled."""
         with patch.object(
-            pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
+                pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
         ) as mock_sanitize:
             with patch("seo_scraper.pipeline.settings") as mock_settings:
                 mock_settings.ENABLE_LLM_HTML_SANITIZER = False
@@ -253,8 +253,8 @@ class TestLLMHtmlSanitizeMethod:
     async def test_returns_none_on_import_error(self, pipeline):
         """Should return None when google-generativeai is not installed."""
         with patch(
-            "seo_scraper.gemini_client.get_gemini_client",
-            side_effect=ImportError("No module"),
+                "seo_scraper.gemini_client.get_gemini_client",
+                side_effect=ImportError("No module"),
         ):
             result = await pipeline._step_llm_html_sanitize("<html></html>")
             assert result is None
@@ -286,12 +286,12 @@ class TestLLMStructureSanitizer:
     async def test_structure_sanitizer_not_run_after_llm_html(self, pipeline):
         """Structure sanitizer should not run if LLM HTML sanitizer already ran."""
         with patch.object(
-            pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
+                pipeline, "_step_llm_html_sanitize", new_callable=AsyncMock
         ) as mock_html_sanitize:
             mock_html_sanitize.return_value = "# Title\n\nContent that is long enough."
 
             with patch.object(
-                pipeline, "_step_llm_structure_sanitizer", new_callable=AsyncMock
+                    pipeline, "_step_llm_structure_sanitizer", new_callable=AsyncMock
             ) as mock_struct_sanitize:
                 with patch("seo_scraper.pipeline.settings") as mock_settings:
                     mock_settings.ENABLE_LLM_HTML_SANITIZER = True

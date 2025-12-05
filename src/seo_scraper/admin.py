@@ -3,7 +3,6 @@
 Admin panel for SEO Scraper configuration and maintenance.
 """
 import logging
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -140,7 +139,6 @@ async def get_config() -> ConfigResponse:
 @router.get("/api/system")
 async def get_system_info() -> SystemInfo:
     """Get system information."""
-    import platform
     import sys
 
     from .scraper import scraper_service
