@@ -89,6 +89,10 @@ app = FastAPI(
     description="High-performance scraping microservice with Crawl4AI and PDF support",
     version=__version__,
     lifespan=lifespan,
+    # Disable docs in production (DOCS_ENABLED=false)
+    docs_url="/docs" if settings.DOCS_ENABLED else None,
+    redoc_url="/redoc" if settings.DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if settings.DOCS_ENABLED else None,
 )
 
 

@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # Dashboard
     DASHBOARD_ENABLED: bool = True
 
+    # API Documentation (disable in production for security)
+    DOCS_ENABLED: bool = True
+
     # ==========================================================================
     # Authentication
     # ==========================================================================
