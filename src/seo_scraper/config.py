@@ -62,7 +62,12 @@ class Settings(BaseSettings):
     # API Key for programmatic access (scrape endpoints)
     API_KEY: str = ""
 
-    # Admin credentials for dashboard/admin UI
+    # Users list as JSON: [{"username":"admin","password":"pass","role":"admin"},...]
+    # Roles: "admin" (full access), "viewer" (read-only dashboard)
+    # If empty, falls back to ADMIN_USERNAME/ADMIN_PASSWORD
+    USERS: str = ""
+
+    # Legacy: single admin credentials (used if USERS is empty)
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = ""
 

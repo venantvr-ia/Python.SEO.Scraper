@@ -36,10 +36,10 @@ class AuthenticatedTestClient(TestClient):
 class SessionTestClient(TestClient):
     """Test client with session cookie authentication."""
 
-    def __init__(self, *args, username: str = "admin", **kwargs):
+    def __init__(self, *args, username: str = "admin", role: str = "admin", **kwargs):
         super().__init__(*args, **kwargs)
-        # Create a session token
-        self.session_token = create_session_token(username)
+        # Create a session token with role
+        self.session_token = create_session_token(username, role)
 
     def request(self, method, url, **kwargs):
         cookies = kwargs.get("cookies") or {}
@@ -58,6 +58,12 @@ def client():
 def session_client():
     """FastAPI test client with session cookie (for dashboard/admin)."""
     return SessionTestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def viewer_client():
+    """FastAPI test client with viewer role (read-only access)."""
+    return SessionTestClient(app, username="viewer", role="viewer", raise_server_exceptions=False)
 
 
 @pytest.fixture

@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from .auth import RequireSession
+from .auth import RequireAdmin, RequireSession
 from .config import settings
 from .database import db
 
@@ -164,7 +164,7 @@ async def get_system_info(session: RequireSession) -> SystemInfo:
 
 
 # =============================================================================
-# API Endpoints - Cache Management (require session)
+# API Endpoints - Cache Management (read: session, write: admin)
 # =============================================================================
 def _get_dir_size(path: Path) -> tuple[int, int]:
     """Get directory size and file count."""
@@ -232,7 +232,7 @@ async def get_caches(session: RequireSession) -> list[CacheInfo]:
 
 
 @router.post("/api/cache/clear/{cache_name}")
-async def clear_cache(cache_name: str, session: RequireSession) -> ActionResult:
+async def clear_cache(cache_name: str, session: RequireAdmin) -> ActionResult:
     """Clear a specific cache."""
     cache_paths = {
         "crawl4ai": Path.home() / ".crawl4ai",
@@ -288,7 +288,7 @@ async def clear_cache(cache_name: str, session: RequireSession) -> ActionResult:
 
 
 @router.post("/api/cache/clear-all")
-async def clear_all_caches(session: RequireSession) -> ActionResult:
+async def clear_all_caches(session: RequireAdmin) -> ActionResult:
     """Clear all clearable caches (excludes Playwright browsers)."""
     results = []
     total_freed = 0
@@ -326,10 +326,10 @@ async def clear_all_caches(session: RequireSession) -> ActionResult:
 
 
 # =============================================================================
-# API Endpoints - Crawler Actions (require session)
+# API Endpoints - Crawler Actions (require admin)
 # =============================================================================
 @router.post("/api/crawler/restart")
-async def restart_crawler(session: RequireSession) -> ActionResult:
+async def restart_crawler(session: RequireAdmin) -> ActionResult:
     """Restart the crawler."""
     from .scraper import scraper_service
 
@@ -346,7 +346,7 @@ async def restart_crawler(session: RequireSession) -> ActionResult:
 
 
 @router.post("/api/crawler/stop")
-async def stop_crawler(session: RequireSession) -> ActionResult:
+async def stop_crawler(session: RequireAdmin) -> ActionResult:
     """Stop the crawler."""
     from .scraper import scraper_service
 
@@ -362,7 +362,7 @@ async def stop_crawler(session: RequireSession) -> ActionResult:
 
 
 @router.post("/api/crawler/start")
-async def start_crawler(session: RequireSession) -> ActionResult:
+async def start_crawler(session: RequireAdmin) -> ActionResult:
     """Start the crawler."""
     from .scraper import scraper_service
 
@@ -378,10 +378,10 @@ async def start_crawler(session: RequireSession) -> ActionResult:
 
 
 # =============================================================================
-# API Endpoints - Database Actions (require session)
+# API Endpoints - Database Actions (require admin)
 # =============================================================================
 @router.post("/api/database/vacuum")
-async def vacuum_database(session: RequireSession) -> ActionResult:
+async def vacuum_database(session: RequireAdmin) -> ActionResult:
     """Vacuum the database to reclaim space."""
     try:
         size_before = Path(settings.DATABASE_PATH).stat().st_size
@@ -406,7 +406,7 @@ async def vacuum_database(session: RequireSession) -> ActionResult:
 
 
 @router.delete("/api/database/logs/old")
-async def delete_old_logs(session: RequireSession, days: int = 30) -> ActionResult:
+async def delete_old_logs(session: RequireAdmin, days: int = 30) -> ActionResult:
     """Delete logs older than specified days."""
     try:
         deleted = await db.delete_old_logs(days=days)

@@ -14,6 +14,7 @@ from .auth import (
     clear_session_cookie,
     create_session_token,
     get_current_session,
+    is_auth_enabled,
     set_session_cookie,
 )
 from .config import settings
@@ -29,7 +30,7 @@ LOGIN_HTML = Path(settings.TEMPLATES_DIR) / "login.html"
 async def login_page():
     """Display login page."""
     # If auth is disabled, redirect to dashboard
-    if not settings.ADMIN_PASSWORD:
+    if not is_auth_enabled():
         return RedirectResponse(url="/dashboard/", status_code=302)
 
     return FileResponse(LOGIN_HTML, media_type="text/html")
@@ -38,11 +39,12 @@ async def login_page():
 @router.post("/login")
 async def login(request: LoginRequest, response: Response):
     """Process login request."""
-    if authenticate_user(request.username, request.password):
-        token = create_session_token(request.username)
+    user = authenticate_user(request.username, request.password)
+    if user:
+        token = create_session_token(request.username, user.role)
         set_session_cookie(response, token)
-        logger.info(f"User '{request.username}' logged in")
-        return {"success": True, "message": "Login successful"}
+        logger.info(f"User '{request.username}' (role={user.role}) logged in")
+        return {"success": True, "message": "Login successful", "role": user.role}
 
     logger.warning(f"Failed login attempt for user '{request.username}'")
     response.status_code = 401
@@ -61,11 +63,12 @@ async def auth_status(session=None):
     """Check authentication status."""
     session = await get_current_session()
 
-    if not settings.ADMIN_PASSWORD:
+    if not is_auth_enabled():
         return {
             "authenticated": True,
             "auth_disabled": True,
             "username": "anonymous",
+            "role": "admin",
         }
 
     if session:
@@ -73,6 +76,7 @@ async def auth_status(session=None):
             "authenticated": True,
             "auth_disabled": False,
             "username": session.username,
+            "role": session.role,
             "expires": session.exp.isoformat(),
         }
 

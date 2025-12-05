@@ -4,11 +4,13 @@ Authentication module for SEO Scraper.
 
 - API Key authentication for programmatic endpoints (/scrape, /scrape/batch)
 - Session-based authentication for UI (dashboard, admin)
+- Multi-user support with roles (admin, viewer)
 """
+import json
 import logging
 import secrets
 from datetime import datetime, timedelta
-from typing import Annotated
+from typing import Annotated, Literal
 
 import jwt
 from fastapi import Cookie, Depends, HTTPException, Request, Response
@@ -18,6 +20,55 @@ from pydantic import BaseModel
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# User Management
+# =============================================================================
+
+class User(BaseModel):
+    """User model."""
+
+    username: str
+    password: str
+    role: Literal["admin", "viewer"] = "viewer"
+
+
+def get_users() -> list[User]:
+    """
+    Get list of configured users.
+
+    Priority:
+    1. USERS JSON if set
+    2. ADMIN_USERNAME/ADMIN_PASSWORD as fallback (role=admin)
+    3. Empty list if nothing configured (auth disabled)
+    """
+    # Try USERS JSON first
+    if settings.USERS:
+        try:
+            users_data = json.loads(settings.USERS)
+            return [User(**u) for u in users_data]
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.error(f"Failed to parse USERS JSON: {e}")
+            # Fall through to legacy
+
+    # Legacy single admin user
+    if settings.ADMIN_PASSWORD:
+        return [
+            User(
+                username=settings.ADMIN_USERNAME,
+                password=settings.ADMIN_PASSWORD,
+                role="admin",
+            )
+        ]
+
+    # No users configured = auth disabled
+    return []
+
+
+def is_auth_enabled() -> bool:
+    """Check if authentication is enabled."""
+    return bool(settings.USERS or settings.ADMIN_PASSWORD)
 
 # =============================================================================
 # API Key Authentication (for /scrape endpoints)
@@ -77,14 +128,16 @@ class SessionData(BaseModel):
     """Session data stored in JWT."""
 
     username: str
+    role: Literal["admin", "viewer", "anonymous"] = "viewer"
     exp: datetime
 
 
-def create_session_token(username: str) -> str:
+def create_session_token(username: str, role: str = "viewer") -> str:
     """Create a signed JWT session token."""
     expiry = datetime.utcnow() + timedelta(days=settings.SESSION_EXPIRY_DAYS)
     payload = {
         "username": username,
+        "role": role,
         "exp": expiry,
     }
     return jwt.encode(payload, settings.SESSION_SECRET_KEY, algorithm=SESSION_ALGORITHM)
@@ -98,6 +151,7 @@ def verify_session_token(token: str) -> SessionData | None:
         )
         return SessionData(
             username=payload["username"],
+            role=payload.get("role", "viewer"),
             exp=datetime.fromtimestamp(payload["exp"]),
         )
     except jwt.ExpiredSignatureError:
@@ -136,13 +190,14 @@ async def require_session(
     """
     Require a valid session for UI routes.
 
-    If ADMIN_PASSWORD is not configured, authentication is disabled (open access).
+    If no users configured, authentication is disabled (open access).
     Redirects to login page if not authenticated.
     """
-    # If no admin password configured, allow all requests (create fake session)
-    if not settings.ADMIN_PASSWORD:
+    # If auth not enabled, allow all requests (create anonymous session)
+    if not is_auth_enabled():
         return SessionData(
             username="anonymous",
+            role="anonymous",
             exp=datetime.utcnow() + timedelta(days=1),
         )
 
@@ -164,15 +219,37 @@ async def require_session(
 RequireSession = Annotated[SessionData, Depends(require_session)]
 
 
-def authenticate_user(username: str, password: str) -> bool:
-    """Check if username and password are valid."""
-    if not settings.ADMIN_PASSWORD:
-        return True
+async def require_admin(session: RequireSession) -> SessionData:
+    """Require admin role for sensitive operations."""
+    if session.role not in ("admin", "anonymous"):
+        raise HTTPException(
+            status_code=403,
+            detail="Admin privileges required",
+        )
+    return session
 
-    return (
-        secrets.compare_digest(username, settings.ADMIN_USERNAME)
-        and secrets.compare_digest(password, settings.ADMIN_PASSWORD)
-    )
+
+# Dependency for admin-only routes
+RequireAdmin = Annotated[SessionData, Depends(require_admin)]
+
+
+def authenticate_user(username: str, password: str) -> User | None:
+    """
+    Check if username and password are valid.
+
+    Returns the User object if valid, None otherwise.
+    """
+    if not is_auth_enabled():
+        return User(username="anonymous", password="", role="admin")
+
+    users = get_users()
+    for user in users:
+        if secrets.compare_digest(username, user.username) and secrets.compare_digest(
+            password, user.password
+        ):
+            return user
+
+    return None
 
 
 def set_session_cookie(response: Response, token: str) -> None:
