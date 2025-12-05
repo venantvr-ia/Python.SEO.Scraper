@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from .auth import RequireAdmin, RequireSession
+from .auth import RequireAdmin
 from .config import settings
 from .database import db
 
@@ -70,19 +70,19 @@ class SystemInfo(BaseModel):
 
 
 # =============================================================================
-# HTML Routes (require session)
+# HTML Routes (require admin)
 # =============================================================================
 @router.get("/", response_class=FileResponse)
-async def admin_index(session: RequireSession):
+async def admin_index(session: RequireAdmin):
     """Admin panel home page."""
     return FileResponse(ADMIN_HTML, media_type="text/html")
 
 
 # =============================================================================
-# API Endpoints - Configuration (require session)
+# API Endpoints - Configuration (require admin)
 # =============================================================================
 @router.get("/api/config")
-async def get_config(session: RequireSession) -> ConfigResponse:
+async def get_config(session: RequireAdmin) -> ConfigResponse:
     """Get current configuration (sensitive values masked)."""
     config_items = []
 
@@ -138,7 +138,7 @@ async def get_config(session: RequireSession) -> ConfigResponse:
 
 
 @router.get("/api/system")
-async def get_system_info(session: RequireSession) -> SystemInfo:
+async def get_system_info(session: RequireAdmin) -> SystemInfo:
     """Get system information."""
     import sys
 
@@ -180,7 +180,7 @@ def _get_dir_size(path: Path) -> tuple[int, int]:
 
 
 @router.get("/api/caches")
-async def get_caches(session: RequireSession) -> list[CacheInfo]:
+async def get_caches(session: RequireAdmin) -> list[CacheInfo]:
     """Get information about all caches."""
     caches = []
 

@@ -67,9 +67,20 @@ Texte sans espace après titre
 Trop de lignes vides
 ```
 
+## NETTOYAGE FINAL OBLIGATOIRE
+
+Avant de renvoyer le résultat, effectue une relecture pour supprimer :
+- Liens orphelins vides : `[](...)` ou `[texte]()`
+- Images cassées : `![](...)` ou `![alt]()`
+- Textes de boutons résiduels : "Share", "Download", "Cite", "PDF", "Export", "Print"
+- Artéfacts d'interface : "Loading...", "Please wait", "Click here"
+- Balises ou attributs HTML échappés : `&lt;`, `&gt;`, `&amp;`, `class=`, `id=`
+- Caractères de contrôle ou unicode cassés
+- Lignes ne contenant que des espaces ou tirets
+
 ## CONSIGNES FINALES
 
-- Renvoie UNIQUEMENT le Markdown
+- Renvoie UNIQUEMENT le Markdown nettoyé
 - Aucune explication avant ou après
 - Respecte scrupuleusement l'espacement
 

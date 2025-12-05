@@ -37,10 +37,21 @@ Contenu...
 ### Sous-section
 ```
 
+## NETTOYAGE FINAL OBLIGATOIRE
+
+Après correction des titres, effectue une relecture pour supprimer :
+- Liens orphelins vides : `[](...)` ou `[texte]()`
+- Images cassées : `![](...)` ou `![alt]()`
+- Textes de boutons résiduels : "Share", "Download", "Cite", "PDF", "Export", "Print"
+- Artéfacts d'interface : "Loading...", "Please wait", "Click here"
+- Balises ou attributs HTML échappés : `&lt;`, `&gt;`, `&amp;`, `class=`, `id=`
+- Caractères de contrôle ou unicode cassés
+- Lignes ne contenant que des espaces ou tirets
+
 ## DOCUMENT À CORRIGER
 
 {{ markdown_content }}
 
 ---
 
-Renvoie UNIQUEMENT le document corrigé, sans texte avant ou après.
+Renvoie UNIQUEMENT le document corrigé et nettoyé, sans texte avant ou après.
