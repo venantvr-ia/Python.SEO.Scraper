@@ -251,4 +251,4 @@ MIT
 
 ## Stack
 
-[![Stack](https://skillicons.dev/icons?i=py,fastapi,sqlite,docker,git&theme=dark)](https://skillicons.dev)
+[![Stack](https://skillicons.dev/icons?i=py,fastapi,sqlite,docker&theme=dark)](https://skillicons.dev)
