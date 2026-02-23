@@ -248,3 +248,7 @@ src/seo_scraper/
 ## Licence
 
 MIT
+
+## Stack
+
+[![Stack](https://skillicons.dev/icons?i=py,fastapi,sqlite,docker,git&theme=dark)](https://skillicons.dev)
